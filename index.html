@@ -76,6 +76,7 @@ main{max-width:640px;margin:0 auto;padding:16px 16px calc(40px + var(--safe-b))}
 .tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-height:96px;padding:14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);cursor:pointer;text-align:left;box-shadow:var(--shadow);transition:border-color var(--t-fast),transform var(--t-fast)}
 .tile:hover{border-color:var(--line-2)}.tile:active{transform:scale(.98)}
 .tile .ic{display:inline-flex;width:44px;height:44px;border-radius:12px;align-items:center;justify-content:center;background:linear-gradient(135deg,#e3f6fd,#cdeefb);color:var(--brand)}
+.tile .ic.emo{background:none;width:auto;height:auto;font-size:30px;line-height:1}
 .tile .t{font-weight:600;font-size:15px;line-height:1.25}
 .badge{position:absolute;top:10px;right:10px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--danger);color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 
@@ -644,6 +645,7 @@ function afterHome(){
     $('missSub').textContent=m.label+' closes on '+m.closes; store('eth_miss',m);
   }).catch(()=>{});
 }
+const EMO={expense:'🧾',cash:'💵',pending:'✅',history:'📋',invoice:'📄',payment:'🏦',statement:'📑',missing:'⚠️',report:'📈',balances:'📊',loan:'🤝',users:'👥',sheets:'🗂️',pin:'🔑',bio:'🔒'};
 function renderHome(){
   $('hiName').textContent=B.user.name+' · '+B.user.role;
   $('hiDate').textContent=new Date(B.today+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
@@ -660,7 +662,7 @@ function renderHome(){
   const me=[['pin','edit','Change my PIN']]; if(bioSupported) me.push(['bio','check',load('eth_bio')?'Face lock: on':'Face / fingerprint lock']);
   groups.push(['My account',me]);
   $('tiles').innerHTML=groups.map(g=>'<div class="sec-title">'+g[0]+'</div><div class="tiles">'+g[1].map(x=>
-    '<button class="tile" onclick="'+(x[0]==='expense'?'newExpense()':'menuGo(\''+x[0]+'\')')+'"><span class="ic">'+ic(x[1])+'</span><span class="t">'+x[2]+'</span>'+(x[3]?'<span class="badge" aria-label="'+x[3]+' waiting">'+x[3]+'</span>':'')+'</button>').join('')+'</div>').join('');
+    '<button class="tile" onclick="'+(x[0]==='expense'?'newExpense()':'menuGo(\''+x[0]+'\')')+'"><span class="ic emo" aria-hidden="true">'+(EMO[x[0]]||'')+'</span><span class="t">'+x[2]+'</span>'+(x[3]?'<span class="badge" aria-label="'+x[3]+' waiting">'+x[3]+'</span>':'')+'</button>').join('')+'</div>').join('');
   const m=load('eth_miss',true);
   if(canMoney() && m && m.orders){ const k=m.orders.length; $('missCard').classList.toggle('hide',!k); $('missText').textContent=k+' shipped orders missing records'; $('missSub').textContent=m.label+' closes on '+m.closes; }
 }
