@@ -75,7 +75,7 @@ main{max-width:640px;margin:0 auto;padding:16px 16px calc(40px + var(--safe-b))}
 @media (min-width:640px){.tiles{grid-template-columns:repeat(4,1fr)}}
 .tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-height:96px;padding:14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);cursor:pointer;text-align:left;box-shadow:var(--shadow);transition:border-color var(--t-fast),transform var(--t-fast)}
 .tile:hover{border-color:var(--line-2)}.tile:active{transform:scale(.98)}
-.tile .ic{display:inline-flex;width:40px;height:40px;border-radius:10px;align-items:center;justify-content:center;background:var(--brand-soft);color:var(--brand)}
+.tile .ic{display:inline-flex;width:44px;height:44px;border-radius:12px;align-items:center;justify-content:center;background:linear-gradient(135deg,#e3f6fd,#cdeefb);color:var(--brand)}
 .tile .t{font-weight:600;font-size:15px;line-height:1.25}
 .badge{position:absolute;top:10px;right:10px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--danger);color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 
@@ -231,7 +231,6 @@ textarea.in{min-height:80px;resize:vertical}
   </div>
   <button class="banner warn hide" id="pendCard" onclick="go('pending')"><svg class="i"><use href="#i-check"/></svg><span class="grow"><b id="pendText"></b><span>Tap to accept or reject</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <button class="banner bad hide" id="missCard" onclick="go('missing')"><svg class="i"><use href="#i-alert"/></svg><span class="grow"><b id="missText"></b><span id="missSub"></span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
-  <button class="biggo" onclick="newExpense()"><svg class="i"><use href="#i-plus"/></svg>Add spending</button>
   <div id="tiles"></div>
 </section>
 
@@ -652,16 +651,16 @@ function renderHome(){
   const n=B.pending.length;
   $('pendCard').classList.toggle('hide',!n); $('pendText').textContent=n+' cash '+(n>1?'entries':'entry')+' waiting for you';
   $('navBadge').classList.toggle('hide',!n); $('navBadge').textContent=n;
-  const groups=[['',[['cash','send','Give cash','Hand cash to someone'],['pending','check','Accept cash','Cash given to you',n],['history','list','Entries','Spending and cash, with who entered']]]];
-  if(canMoney()) groups.push(['Money in',[['invoice','file','Invoice','Upload invoice, products fill in'],['payment','bank','Payment received','Check the bank rate'],['statement','table','Bank statement','Match payments to orders']]]);
-  const rep=[]; if(canMoney()) rep.push(['missing','alert','Missing records','Bills and invoices still needed'],['report','bars','Monthly report','Profit, shares, production'],['balances','line','Balances and flags','Cash with each person']);
-  if(isP()) rep.push(['loan','coins','Loans','Taken and repaid'],['users','users','People','Add or deactivate']);
-  if(canMoney() && B.links) rep.push(['sheets','table','Sheets and Drive folder','All records, bills and invoices']);
-  rep.push(['pin','edit','Change my PIN','Only you can change it']);
-  if(bioSupported) rep.push(['bio','check',load('eth_bio')?'Face / fingerprint lock is on':'Turn on face / fingerprint lock',load('eth_bio')?'Tap to turn off':'Open the app with your face or finger']);
-  groups.push([canMoney()?'Reports and records':'More',rep]);
-  $('tiles').innerHTML=groups.map(g=>(g[0]?'<div class="sec-title">'+g[0]+'</div>':'<div style="height:10px"></div>')+'<div class="menu">'+g[1].map(x=>
-    '<button onclick="menuGo(\''+x[0]+'\')"><span class="mi">'+ic(x[1])+'</span><span class="lbl">'+x[2]+'<small>'+x[3]+'</small></span>'+(x[4]?'<span class="cnt" aria-label="'+x[4]+' waiting">'+x[4]+'</span>':'')+'<span class="chev">'+ic('chev','sm')+'</span></button>').join('')+'</div>').join('');
+  const groups=[['Record',[['expense','receipt','Add spending'],['cash','send','Give cash'],['pending','check','Accept cash',n],['history','list','Entries']]]];
+  if(canMoney()) groups.push(['Money in',[['invoice','file','Invoice'],['payment','bank','Payment received'],['statement','table','Bank statement']]]);
+  const rep=[]; if(canMoney()) rep.push(['missing','alert','Missing records'],['report','bars','Monthly report'],['balances','line','Balances and flags']);
+  if(isP()) rep.push(['loan','coins','Loans'],['users','users','People']);
+  if(canMoney() && B.links) rep.push(['sheets','table','Sheets and Drive']);
+  if(rep.length) groups.push([isP()?'Reports and admin':'Reports',rep]);
+  const me=[['pin','edit','Change my PIN']]; if(bioSupported) me.push(['bio','check',load('eth_bio')?'Face lock: on':'Face / fingerprint lock']);
+  groups.push(['My account',me]);
+  $('tiles').innerHTML=groups.map(g=>'<div class="sec-title">'+g[0]+'</div><div class="tiles">'+g[1].map(x=>
+    '<button class="tile" onclick="'+(x[0]==='expense'?'newExpense()':'menuGo(\''+x[0]+'\')')+'"><span class="ic">'+ic(x[1])+'</span><span class="t">'+x[2]+'</span>'+(x[3]?'<span class="badge" aria-label="'+x[3]+' waiting">'+x[3]+'</span>':'')+'</button>').join('')+'</div>').join('');
   const m=load('eth_miss',true);
   if(canMoney() && m && m.orders){ const k=m.orders.length; $('missCard').classList.toggle('hide',!k); $('missText').textContent=k+' shipped orders missing records'; $('missSub').textContent=m.label+' closes on '+m.closes; }
 }
