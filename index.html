@@ -54,6 +54,7 @@ main{max-width:640px;margin:0 auto;padding:16px 16px calc(40px + var(--safe-b))}
 .hero{background:linear-gradient(135deg,#26b3e6 0%,#0a7ab5 55%,#16324a 100%);color:#fff;border:0;padding:20px}
 .hero .lab{opacity:.85;font-size:14px}
 .hero .amt{font-size:36px;font-weight:700;letter-spacing:-.5px;line-height:1.15;margin-top:2px}
+.hero .owed{display:inline-block;margin-top:10px;padding:6px 12px;border:0;border-radius:999px;background:rgba(255,255,255,.18);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
 .hero .who{display:flex;justify-content:space-between;align-items:center;font-size:14px;opacity:.9;margin-bottom:10px}
 .banner{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:14px;border-radius:var(--r);border:1px solid transparent;cursor:pointer;margin-bottom:10px;transition:filter var(--t-fast)}
 .banner:active{filter:brightness(.97)}
@@ -229,6 +230,7 @@ textarea.in{min-height:80px;resize:vertical}
     <div class="who"><span id="hiName"></span><span id="hiDate"></span></div>
     <div class="lab">Cash in your hand</div>
     <div class="amt" id="myCash">Rs 0</div>
+    <button class="owed hide" id="myOwed" onclick="if(isP())go('loan')"></button>
   </div>
   <button class="banner warn hide" id="pendCard" onclick="go('pending')"><svg class="i"><use href="#i-check"/></svg><span class="grow"><b id="pendText"></b><span>Tap to accept or reject</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <button class="banner bad hide" id="missCard" onclick="go('missing')"><svg class="i"><use href="#i-alert"/></svg><span class="grow"><b id="missText"></b><span id="missSub"></span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
@@ -650,6 +652,7 @@ function renderHome(){
   $('hiName').textContent=B.user.name+' · '+B.user.role;
   $('hiDate').textContent=new Date(B.today+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   $('myCash').textContent=rs(B.balance);
+  $('myOwed').classList.toggle('hide',!(B.owed>0)); $('myOwed').textContent='Company owes you '+rs(B.owed||0);
   const n=B.pending.length;
   $('pendCard').classList.toggle('hide',!n); $('pendText').textContent=n+' cash '+(n>1?'entries':'entry')+' waiting for you';
   $('navBadge').classList.toggle('hide',!n); $('navBadge').textContent=n;
@@ -688,7 +691,7 @@ function initExpense(){
   exModeV='Cash';
   $('exFrom').innerHTML=opts(B.users.map(u=>u.name), B.user.name);
   $('exPersonalOf').innerHTML=opts(B.users.filter(u=>u.role==='Partner').map(u=>u.name), B.user.name);
-  $('exBillReq').classList.toggle('hide', isP());
+  $('exBillReq').classList.toggle('hide', exType==='Personal');
   $('exChqHint').textContent='';
   if(!EDIT){ resetFields(['exOrder','exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto']); $('exOwn').checked=false; $('exOrderInfo').textContent=''; $('exMock').classList.add('hide'); }
   setType(exType==='Personal'&&!isP()?'Order':exType);
@@ -700,7 +703,7 @@ function initExpense(){
     if(B.users.some(u=>u.name===e.paidFrom)) $('exFrom').value=e.paidFrom;
     $('exOwn').checked=String(e.paidFrom||'').indexOf('Own pocket - ')===0;
     $('exChq').value=e.chequeNo||''; $('exRef').value=e.billRef||''; $('exEth').value=e.ethNo||''; if(e.personalOf) $('exPersonalOf').value=e.personalOf;
-    $('exBillReq').classList.toggle('hide', isP()||!!e.bill);
+    $('exBillReq').classList.toggle('hide', e.type==='Personal'||!!e.bill);
     $('exEditInfo').innerHTML='<div class="note info" style="margin:0 0 12px">Editing an entry by '+esc(e.by)+'. Your name is saved with every change.'+
       (e.bill?' <a href="'+esc(e.bill)+'" target="_blank" rel="noopener">See current bill</a>':'')+
       (e.edits.length?'<div class="small" style="margin-top:8px"><b>Changes so far</b><br>'+e.edits.map(x=>esc(x.date)+' · '+esc(x.by)+': '+esc(x.field)+(x.old?' '+esc(x.old)+' → ':' ')+esc(x.nw)).join('<br>')+'</div>':'')+'</div>';
@@ -713,6 +716,7 @@ function setType(t){
   $('exOrderBox').classList.toggle('hide', t!=='Order');
   $('exPersonalBox').classList.toggle('hide', t!=='Personal');
   $('exCatReq').classList.toggle('hide', t==='Personal');
+  $('exBillReq').classList.toggle('hide', t==='Personal' || !!(EDIT && EDIT.bill));
   const keep=$('exCat').value;
   $('exCat').innerHTML='<option value="">'+(t==='Personal'?'No category':'Choose category')+'</option>'+opts(B.cats[t]);
   if(B.cats[t].indexOf(keep)>=0) $('exCat').value=keep;
@@ -752,7 +756,7 @@ function saveExpense(){ busy('exSave', async()=>{
   if(p.mode==='Cheque'){ need(p.chequeNo,'exChq','Enter the cheque number'); }
   p.bill=await files('exBill'); p.cheque=p.mode==='Cheque'?await files('exChqPhoto'):[];
   if(p.mode==='Cheque') need(p.cheque.length || (EDIT && EDIT.cheque),'exChqPhoto','Add the cheque photo');
-  need(isP() || p.bill.length || (EDIT && EDIT.bill),'exBill','Bill photo is required');
+  need(exType==='Personal' || p.bill.length || (EDIT && EDIT.bill),'exBill','Bill photo is required');
   if(EDIT){
     p.id=EDIT.id; const r=await call('editExpense',p);
     toast(r.changed?'Changes saved':'Nothing changed', true); EDIT=null; refresh(); go('history'); return;
