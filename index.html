@@ -340,15 +340,20 @@ textarea.in{min-height:80px;resize:vertical}
     <div class="kv"><span>Selected invoices</span><b id="pyInvTotal">$0</b></div>
     <div class="two">
       <div class="field"><label class="l" for="pyUsd">USD received <span class="req">*</span></label><div class="money"><span>$</span><input class="in" id="pyUsd" type="number" inputmode="decimal" oninput="pyCalc()"></div><div class="err" id="pyUsd-err"></div></div>
-      <div class="field"><label class="l" for="pyPkr">PKR in bank <span class="req">*</span></label><div class="money"><span>Rs</span><input class="in" id="pyPkr" type="number" inputmode="decimal" oninput="pyCalc()"></div><div class="err" id="pyPkr-err"></div></div>
+      <div class="field"><label class="l" for="pyPkr">PKR received <span class="req">*</span></label><div class="money"><span>Rs</span><input class="in" id="pyPkr" type="number" inputmode="decimal" oninput="pyCalc()"></div><div class="err" id="pyPkr-err"></div></div>
     </div>
     <div class="hint" id="pyRate"></div>
     <div class="two">
       <div class="field"><label class="l" for="pyDate">Date received</label><input class="in" id="pyDate" type="date"></div>
-      <div class="field"><label class="l" for="pyBank">Bank</label><input class="in" id="pyBank"></div>
+      <div class="field"><label class="l" for="pyVia">How it came</label><select class="in" id="pyVia"></select></div>
     </div>
-    <div class="field"><span class="l">Bank receipt <span class="req">*</span></span>
-      <label class="drop" for="pyProof"><svg class="i ic"><use href="#i-camera"/></svg><span><b>Add bank proof</b><small>Photo, screenshot or PDF</small></span><input id="pyProof" type="file" accept="image/*,application/pdf" multiple onchange="pick(this)"></label>
+    <div class="two">
+      <div class="field"><label class="l" for="pyInto">Money came into</label><select class="in" id="pyInto" onchange="pyIntoCh()"></select></div>
+      <div class="field" id="pyBankBox"><label class="l" for="pyBank">Bank</label><input class="in" id="pyBank"></div>
+    </div>
+    <div class="hint" id="pyIntoHint"></div>
+    <div class="field"><span class="l">Proof <span class="req">*</span></span>
+      <label class="drop" for="pyProof"><svg class="i ic"><use href="#i-camera"/></svg><span><b>Add proof</b><small>Bank receipt, Western Union slip or screenshot</small></span><input id="pyProof" type="file" accept="image/*,application/pdf" multiple onchange="pick(this)"></label>
       <div class="thumbs" id="pyProof-th"></div><div class="err" id="pyProof-err"></div></div>
     <div class="field"><label class="l" for="pyNote">Note <span class="opt">(optional)</span></label><input class="in" id="pyNote"></div>
     <button class="btn" id="pySave" onclick="savePayment()">Save and check rate</button>
@@ -830,7 +835,7 @@ function initCash(){
   $('caDate').value=B.today; $('caDate').max=B.today;
   const from=[B.user.name]; if(isP()) from.push('Company Bank','Opening balance');
   $('caFrom').innerHTML=opts(from,B.user.name);
-  $('caTo').innerHTML='<option value="">Choose person</option>'+opts(B.users.map(u=>u.name).filter(n=>n!==B.user.name));
+  $('caTo').innerHTML='<option value="">Choose person</option>'+opts(B.users.map(u=>u.name).filter(n=>n!==B.user.name).concat(['Company Bank']));
   $('caPurpose').innerHTML=opts(isP()?B.purposes:B.purposes.filter(x=>x!=='Partner drawing'));
   $('caMode').innerHTML=opts(B.modes,'Cash');
 }
@@ -918,6 +923,8 @@ function saveInvoice(){ busy('inSave', async()=>{
 let pyList=[];
 async function initPayment(){
   $('pyDate').value=B.today; $('pyBank').value=B.bank; $('pyResult').innerHTML='';
+  $('pyVia').innerHTML=opts(B.payVia||['Bank transfer'],'Bank transfer');
+  $('pyInto').innerHTML=opts(['Company Bank'].concat(B.users.map(u=>u.name)),'Company Bank'); pyIntoCh();
   $('pyInvs').innerHTML='<div class="card"><div class="skel"></div><div class="skel"></div></div>';
   try{ const r=await call('openInvoices'); pyList=r.invoices;
     $('pyInvs').innerHTML=pyList.length?pyList.map((v,i)=>'<label class="inv"><input type="checkbox" value="'+i+'" onchange="pyCalc()"><span style="flex:1"><span class="row" style="justify-content:space-between"><b>'+esc(v.no)+'</b><b>'+usd(v.usd)+'</b></span>'+
@@ -927,6 +934,8 @@ async function initPayment(){
       :'<div class="card muted">No unpaid invoices. Add the invoice first.</div>';
   }catch(e){ $('pyInvs').innerHTML='<div class="card note bad">'+esc(e.message)+'</div>'; }
 }
+function pyIntoCh(){ const b=$('pyInto').value==='Company Bank'; $('pyBankBox').classList.toggle('hide',!b);
+  $('pyIntoHint').textContent=b?'':'This money is company money with '+$('pyInto').value+'. It shows in his cash in hand until he deposits it in the Company Bank or spends it on company work.'; }
 function pySel(){ return [...document.querySelectorAll('#pyInvs input:checked')].map(c=>pyList[Number(c.value)]); }
 function pyCalc(){
   const s=pySel(); const t=s.reduce((a,v)=>a+v.usd,0);
@@ -937,9 +946,9 @@ function pyCalc(){
 }
 function savePayment(){ busy('pySave', async()=>{
   const s=pySel(); if(!s.length) throw new Error('Tick the invoice(s) this payment is for');
-  const p={date:$('pyDate').value,invoiceNos:s.map(v=>v.no),client:s[0].client,usd:$('pyUsd').value,pkr:$('pyPkr').value,bank:$('pyBank').value,note:$('pyNote').value};
+  const p={date:$('pyDate').value,invoiceNos:s.map(v=>v.no),client:s[0].client,usd:$('pyUsd').value,pkr:$('pyPkr').value,bank:$('pyBank').value,into:$('pyInto').value,via:$('pyVia').value,note:$('pyNote').value};
   need(Number(p.usd)>0,'pyUsd','Enter USD received'); need(Number(p.pkr)>0,'pyPkr','Enter PKR credited');
-  p.proof=await files('pyProof'); need(p.proof.length,'pyProof','Add the bank proof');
+  p.proof=await files('pyProof'); need(p.proof.length,'pyProof','Add the proof');
   const r=await call('addPayment',p);
   const html='<div class="note '+(r.flags.length?'bad':'ok')+'"><b>Rate received '+r.rate.toFixed(2)+'</b>'+(r.market?' · market '+r.market.toFixed(2):'')+'<br>'+(r.flags.length?esc(r.flags.join(' · ')):'Rate and amount are fine')+'</div>';
   resetFields(['pyUsd','pyPkr','pyNote','pyProof']); $('pyRate').textContent='';
