@@ -245,12 +245,18 @@ textarea.in{min-height:80px;resize:vertical}
     <div class="field" id="exOrderBox"><label class="l" for="exOrder">Order <span class="req">*</span></label>
       <input class="in" id="exOrder" list="orderList" placeholder="Type order name or number" autocomplete="off" onchange="orderPicked()">
       <div class="hint" id="exOrderInfo"></div><div class="err" id="exOrder-err"></div>
-      <img id="exMock" class="hide" alt="Order mockup" style="max-width:160px;max-height:160px;border-radius:10px;margin-top:8px;border:1px solid var(--line)"></div>
+      <img id="exMock" class="hide" alt="Order mockup" style="max-width:160px;max-height:160px;border-radius:10px;margin-top:8px;border:1px solid var(--line)">
+      <label class="check" id="exMultiBox"><input type="checkbox" id="exMulti" onchange="setMulti(this.checked)"><span>This bill is for several orders<br><span class="muted">One bill, one ETH number, split by order</span></span></label></div>
+    <div class="field hide" id="exSplitBox"><span class="l">Orders on this bill <span class="req">*</span></span>
+      <div id="exSplits"></div>
+      <button type="button" class="btn sec sm" style="width:100%" onclick="addSplit()"><svg class="i sm"><use href="#i-plus"/></svg>Add order</button>
+      <div class="kv" style="margin-top:8px"><span>Bill total</span><b id="exSplitTotal">Rs 0</b></div>
+      <div class="err" id="exSplit-err"></div></div>
     <div class="field hide" id="exPersonalBox"><label class="l" for="exPersonalOf">Personal spending of</label><select class="in" id="exPersonalOf"></select></div>
     <div class="field"><label class="l" for="exCat">Category <span class="req" id="exCatReq">*</span></label><select class="in" id="exCat"></select><div class="err" id="exCat-err"></div></div>
     <div class="two">
       <div class="field"><label class="l" for="exDate">Date</label><input class="in" id="exDate" type="date"></div>
-      <div class="field"><label class="l" for="exAmt">Amount <span class="req">*</span></label><div class="money"><span>Rs</span><input class="in" id="exAmt" type="number" inputmode="decimal" min="0"></div><div class="err" id="exAmt-err"></div></div>
+      <div class="field" id="exAmtBox"><label class="l" for="exAmt">Amount <span class="req">*</span></label><div class="money"><span>Rs</span><input class="in" id="exAmt" type="number" inputmode="decimal" min="0"></div><div class="err" id="exAmt-err"></div></div>
     </div>
     <div class="field"><label class="l" for="exPaidTo">Paid to <span class="req">*</span></label><input class="in" id="exPaidTo" placeholder="Shop or person" autocomplete="off"><div class="err" id="exPaidTo-err"></div></div>
     <div class="field"><label class="l" for="exDesc">Details <span class="opt">(optional)</span></label><input class="in" id="exDesc" placeholder="e.g. navy fleece 41 kg"></div>
@@ -268,8 +274,8 @@ textarea.in{min-height:80px;resize:vertical}
   </div>
   <div class="card">
     <div class="field"><span class="l">Bill photo <span class="req" id="exBillReq">*</span></span>
-      <label class="drop" for="exBill"><svg class="i ic"><use href="#i-camera"/></svg><span><b>Take photo or choose file</b><small>Photo or PDF of the bill</small></span><input id="exBill" type="file" accept="image/*,application/pdf" multiple onchange="pick(this)"></label>
-      <div class="thumbs" id="exBill-th"></div><div class="err" id="exBill-err"></div></div>
+      <label class="drop" for="exBill"><svg class="i ic"><use href="#i-camera"/></svg><span><b>Take photo or choose file</b><small>Photo or PDF of the bill</small></span><input id="exBill" type="file" accept="image/*,application/pdf" multiple onchange="pick(this);readBill()"></label>
+      <div class="thumbs" id="exBill-th"></div><div class="reading hide" id="billReading"><span class="spin"></span>Reading orders on the bill...</div><div id="billNote"></div><div class="err" id="exBill-err"></div></div>
     <div class="two">
       <div class="field"><label class="l" for="exEth">Ethletia bill no.</label><input class="in" id="exEth" placeholder="Auto" autocomplete="off" style="text-transform:uppercase"><div class="hint">Leave empty for the next number</div><div class="err" id="exEth-err"></div></div>
       <div class="field"><label class="l" for="exRef">Vendor bill no.</label><input class="in" id="exRef" placeholder="On their bill" autocomplete="off"></div>
@@ -693,6 +699,7 @@ function initExpense(){
   $('exPersonalOf').innerHTML=opts(B.users.filter(u=>u.role==='Partner').map(u=>u.name), B.user.name);
   $('exBillReq').classList.toggle('hide', exType==='Personal');
   $('exChqHint').textContent='';
+  setMulti(false); $('billNote').innerHTML='';
   if(!EDIT){ resetFields(['exOrder','exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto']); $('exOwn').checked=false; $('exOrderInfo').textContent=''; $('exMock').classList.add('hide'); }
   setType(exType==='Personal'&&!isP()?'Order':exType);
   $('exEditInfo').innerHTML=''; $('exSave').textContent=EDIT?'Save changes':'Save spending';
@@ -714,6 +721,8 @@ async function editEntry(id){ try{ EDIT=await call('getExpense',{id}); go('expen
 function setType(t){
   exType=t; setSeg('exType',t);
   $('exOrderBox').classList.toggle('hide', t!=='Order');
+  $('exMultiBox').classList.toggle('hide', !!EDIT);
+  if(t!=='Order' && exMultiOn) setMulti(false);
   $('exPersonalBox').classList.toggle('hide', t!=='Personal');
   $('exCatReq').classList.toggle('hide', t==='Personal');
   $('exBillReq').classList.toggle('hide', t==='Personal' || !!(EDIT && EDIT.bill));
@@ -728,6 +737,45 @@ function modeChanged(){
   $('exOwnBox').classList.toggle('hide', !isP() || exType==='Personal');
   const own=isP() && exType!=='Personal' && $('exOwn').checked;
   $('exFromBox').classList.toggle('hide', own || !(isP() && B.cashModes.indexOf(m)>=0));
+}
+let exMultiOn=false;
+function setMulti(on){
+  exMultiOn=on; $('exMulti').checked=on;
+  $('exSplitBox').classList.toggle('hide',!on); $('exAmtBox').classList.toggle('hide',on);
+  $('exOrder').closest('.field').querySelector('label.l').classList.toggle('hide',on); $('exOrder').classList.toggle('hide',on);
+  $('exOrderInfo').classList.toggle('hide',on); if(on) $('exMock').classList.add('hide');
+  if(on && !$('exSplits').children.length){ addSplit({order:$('exOrder').value,amount:$('exAmt').value}); addSplit(); }
+  if(!on) $('exSplits').innerHTML='';
+  splitSum();
+}
+function addSplit(v){
+  v=v||{}; const d=document.createElement('div'); d.className='line';
+  d.innerHTML='<div class="top"><span>Order '+($('exSplits').children.length+1)+'</span><button type="button" class="iconbtn" aria-label="Remove order" style="color:var(--text-2)" onclick="this.closest(\'.line\').remove();splitSum()">'+ic('x','sm')+'</button></div>'+
+    '<input class="in sp-o" list="orderList" placeholder="Order name or number" autocomplete="off">'+
+    '<div class="two" style="margin-top:8px"><div class="money"><span>Rs</span><input class="in sp-a" type="number" inputmode="decimal" placeholder="Amount" oninput="splitSum()"></div>'+
+    '<input class="in sp-n" placeholder="e.g. front emb 38 pcs" autocomplete="off"></div>';
+  $('exSplits').appendChild(d);
+  d.querySelector('.sp-o').value=v.order||''; if(v.amount) d.querySelector('.sp-a').value=v.amount; d.querySelector('.sp-n').value=v.note||'';
+  splitSum();
+}
+function splitVals(){ return [...document.querySelectorAll('#exSplits .line')].map(l=>({order:l.querySelector('.sp-o').value.trim(),amount:Number(l.querySelector('.sp-a').value)||0,note:l.querySelector('.sp-n').value.trim()})); }
+function splitSum(){ const t=splitVals().reduce((a,l)=>a+l.amount,0); $('exSplitTotal').textContent=rs(t); return t; }
+async function readBill(){
+  if(exType!=='Order' || EDIT) return;
+  const f=await files('exBill'); if(!f.length) return;
+  $('billReading').classList.remove('hide'); $('billNote').innerHTML='';
+  try{
+    const r=await call('readBill',{file:f.slice(0,1)});
+    if(r.splits.length>=2){
+      $('exSplits').innerHTML=''; setMulti(true); $('exSplits').innerHTML='';
+      r.splits.forEach(addSplit); const t=splitSum();
+      $('billNote').innerHTML='<div class="note ok">Found '+r.splits.length+' orders on the bill'+(r.total?' · bill total '+rs(r.total)+(Math.abs(r.total-t)>1?' (orders add up to '+rs(t)+', please check)':''):'')+'. Check each order and amount before saving.</div>';
+    } else if(r.splits.length===1){
+      if(!exMultiOn){ $('exOrder').value=r.splits[0].order; orderPicked(); if(!$('exAmt').value && r.splits[0].amount) $('exAmt').value=r.splits[0].amount; }
+      $('billNote').innerHTML='<div class="note info">Bill is for '+esc(r.splits[0].order)+'. Please check the amount.</div>';
+    } else $('billNote').innerHTML='<div class="note info">No order name or number found on the bill. Pick the order yourself.</div>';
+  }catch(e){ $('billNote').innerHTML='<div class="note info">Could not read the bill. Pick the order yourself.</div>'; }
+  finally{ $('billReading').classList.add('hide'); }
 }
 async function orderPicked(){
   const name=$('exOrder').value; const o=B.orders.find(x=>x.name===name);
@@ -749,7 +797,13 @@ function saveExpense(){ busy('exSave', async()=>{
   const p={date:$('exDate').value,type:exType,order:$('exOrder').value,category:$('exCat').value,paidTo:$('exPaidTo').value.trim(),
     description:$('exDesc').value,amount:$('exAmt').value,mode:exModeV,paidFrom:$('exFrom').value,chequeNo:$('exChq').value.trim(),
     billRef:$('exRef').value,ethNo:$('exEth').value.trim(),personalOf:$('exPersonalOf').value,ownPocket:isP()&&exType!=='Personal'&&$('exOwn').checked};
-  if(exType==='Order') need(B.orders.some(o=>o.name===p.order),'exOrder','Pick the order from the list');
+  if(exType==='Order' && exMultiOn && !EDIT){
+    const L=splitVals().filter(l=>l.order||l.amount);
+    need(L.length>=2,'exSplit','Add at least two orders');
+    L.forEach((l,i)=>{ need(B.orders.some(o=>o.name===l.order),'exSplit','Order '+(i+1)+': pick the order from the list'); need(l.amount>0,'exSplit','Order '+(i+1)+': enter the amount'); });
+    p.splits=L; p.order=L[0].order; p.amount=L.reduce((a,l)=>a+l.amount,0);
+  }
+  else if(exType==='Order') need(B.orders.some(o=>o.name===p.order),'exOrder','Pick the order from the list');
   if(exType!=='Personal') need(p.category,'exCat','Choose a category');
   need(Number(p.amount)>0,'exAmt','Enter the amount');
   need(p.paidTo,'exPaidTo','Who was paid?');
@@ -764,10 +818,10 @@ function saveExpense(){ busy('exSave', async()=>{
   const r=await call('addExpense',p);
   B.balance=r.balance; renderHome();
   const warn=r.flags.filter(f=>f!=='No bill photo');
-  $('exResult').innerHTML='<div class="note ok" role="status">Saved '+rs(p.amount)+'. Write this number on the bill:<div class="big-no">'+esc(r.billNo)+'</div>'+
+  $('exResult').innerHTML='<div class="note ok" role="status">Saved '+rs(p.amount)+(p.splits?' for '+p.splits.length+' orders ('+esc(p.splits.map(l=>l.order+' '+rs(l.amount)).join(', '))+')':'')+'. Write this number on the bill:<div class="big-no">'+esc(r.billNo)+'</div>'+
     (p.ownPocket?'The company now owes you '+rs(p.amount)+'. ':'')+'</div>'+(warn.length?'<div class="note bad">Check: '+esc(warn.join('; '))+'</div>':'');
   $('exResult').scrollIntoView({block:'center',behavior:'smooth'});
-  resetFields(['exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto']); $('exOwn').checked=false; $('exChqHint').textContent=''; modeChanged();
+  resetFields(['exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto']); $('exOwn').checked=false; $('exChqHint').textContent=''; setMulti(false); $('billNote').innerHTML=''; modeChanged();
   refresh();
 }); }
 
