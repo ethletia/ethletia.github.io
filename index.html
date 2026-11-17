@@ -360,7 +360,7 @@ textarea.in{min-height:80px;resize:vertical}
 <section id="s-statement" class="hide">
   <div class="card">
     <div class="field"><span class="l">Statement <span class="req">*</span></span>
-      <label class="drop" for="stPhoto"><svg class="i ic"><use href="#i-camera"/></svg><span><b>Add statement pages</b><small>Photos or PDF. Payments are checked against it.</small></span><input id="stPhoto" type="file" accept="image/*,application/pdf" multiple onchange="pick(this)"></label>
+      <label class="drop" for="stPhoto"><svg class="i ic"><use href="#i-camera"/></svg><span><b>Add statement pages</b><small>Photos or PDF. Every amount in and out is checked against the app.</small></span><input id="stPhoto" type="file" accept="image/*,application/pdf" multiple onchange="pick(this)"></label>
       <div class="thumbs" id="stPhoto-th"></div><div class="err" id="stPhoto-err"></div></div>
     <div class="two">
       <div class="field"><label class="l" for="stFrom">Statement from</label><input class="in" id="stFrom" type="date"></div>
@@ -960,6 +960,8 @@ function saveStatement(){ busy('stSave', async()=>{
   const r=await call('addStatement',p);
   const nf=r.payments.filter(x=>x.found===false).length;
   $('stResult').innerHTML='<div class="note '+(nf?'bad':'ok')+'">Statement saved. '+(r.read?(nf?nf+' payment'+(nf>1?'s were':' was')+' not found on it. A flag was raised.':'All payments for this period were found on it.'):'The text could not be read, so payments were not checked.')+'</div>'+
+    (r.read?'<div class="sec-title">Bank lines not in the app yet</div><div class="card">'+((r.bankOpen||[]).length?r.bankOpen.map(b=>'<div class="item"><div class="main"><div class="ttl">'+esc(b.date)+' · '+(b.dir==='Out'?'Went out':'Came in')+'</div><div class="meta">'+esc(b.details)+'</div>'+
+      '<span class="chip '+(b.status==='Missing'?'bad':'warn')+'">'+(b.status==='Missing'?'Missing '+b.age+' days':'Waiting '+b.age+' of '+(B.bankGrace||6)+' days')+'</span></div><div class="amt">'+rs(b.amount)+'</div></div>').join(''):'<div class="muted">'+(r.bankLines?'All '+r.bankLines+' bank lines match entries in the app.':'No bank lines could be read from it.')+'</div>')+'</div>':'')+
     '<div class="sec-title">Payments '+esc(r.from)+' to '+esc(r.to)+', by order</div><div class="card">'+(r.payments.length?r.payments.map(payCard).join(''):'<div class="muted">No payments entered for this period.</div>')+'</div>';
   resetFields(['stNote','stPhoto']);
 }); }
