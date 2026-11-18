@@ -112,6 +112,7 @@ textarea.in{min-height:80px;resize:vertical}
 .drop b{display:block;font-size:15px}.drop small{color:var(--text-2);font-size:13px}
 .drop input{position:absolute;width:1px;height:1px;opacity:0}
 .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.sw{width:56px;height:56px;border-radius:10px;object-fit:cover;border:1px solid var(--line);flex:0 0 56px;background:var(--surface-2,#eef2f7);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-2);text-align:center}
 .thumbs img,.thumbs .doc{width:64px;height:64px;border-radius:8px;object-fit:cover;border:1px solid var(--line)}
 .thumbs .doc{display:flex;align-items:center;justify-content:center;font-size:11px;padding:4px;text-align:center;background:var(--surface);color:var(--text-2);overflow:hidden}
 .reading{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--brand);margin-top:8px}
@@ -233,6 +234,8 @@ textarea.in{min-height:80px;resize:vertical}
     <button class="owed hide" id="myOwed" onclick="if(isP())go('loan')"></button>
   </div>
   <button class="banner warn hide" id="pendCard" onclick="go('pending')"><svg class="i"><use href="#i-check"/></svg><span class="grow"><b id="pendText"></b><span>Tap to accept or reject</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
+  <button class="banner warn hide" id="fabTodoCard" onclick="fabTodoGo()"><svg class="i"><use href="#i-alert"/></svg><span class="grow"><b id="fabTodoText"></b><span>Tap and choose the fabric code, GSM and kg</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
+  <button class="banner warn hide" id="swCard" onclick="go('fabric');fabTab('lib')"><svg class="i"><use href="#i-camera"/></svg><span class="grow"><b id="swText"></b><span>Add a clear swatch photo for each one</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <button class="banner bad hide" id="missCard" onclick="go('missing')"><svg class="i"><use href="#i-alert"/></svg><span class="grow"><b id="missText"></b><span id="missSub"></span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <div id="tiles"></div>
 </section>
@@ -253,7 +256,16 @@ textarea.in{min-height:80px;resize:vertical}
       <div class="kv" style="margin-top:8px"><span>Bill total</span><b id="exSplitTotal">Rs 0</b></div>
       <div class="err" id="exSplit-err"></div></div>
     <div class="field hide" id="exPersonalBox"><label class="l" for="exPersonalOf">Personal spending of</label><select class="in" id="exPersonalOf"></select></div>
-    <div class="field"><label class="l" for="exCat">Category <span class="req" id="exCatReq">*</span></label><select class="in" id="exCat"></select><div class="err" id="exCat-err"></div></div>
+    <div class="field"><label class="l" for="exCat">Category <span class="req" id="exCatReq">*</span></label><select class="in" id="exCat" onchange="fabShow()"></select><div class="err" id="exCat-err"></div></div>
+    <div class="hide" id="exFabBox">
+      <div class="field"><label class="l" for="exFab">Fabric code <span class="req">*</span></label><select class="in" id="exFab" onchange="if(this.value==='__new'){go('fabric');fabTab('lib');}"></select><div class="err" id="exFab-err"></div>
+        <div class="hint">New colour? Choose "+ Add new fabric" and add it with its swatch photo first.</div></div>
+      <div class="two">
+        <div class="field"><label class="l" for="exGsm">GSM <span class="req">*</span></label><input class="in" id="exGsm" type="number" inputmode="numeric" oninput="fabRate()"><div class="err" id="exGsm-err"></div></div>
+        <div class="field"><label class="l" for="exKg">Kg <span class="req">*</span></label><input class="in" id="exKg" type="number" inputmode="decimal" oninput="fabRate()"><div class="err" id="exKg-err"></div></div>
+      </div>
+      <div class="hint" id="exFabRate"></div>
+    </div>
     <div class="two">
       <div class="field"><label class="l" for="exDate">Date</label><input class="in" id="exDate" type="date"></div>
       <div class="field" id="exAmtBox"><label class="l" for="exAmt">Amount <span class="req">*</span></label><div class="money"><span>Rs</span><input class="in" id="exAmt" type="number" inputmode="decimal" min="0"></div><div class="err" id="exAmt-err"></div></div>
@@ -362,6 +374,72 @@ textarea.in{min-height:80px;resize:vertical}
 </section>
 
 <!-- STATEMENT -->
+<section id="s-fabric" class="hide">
+  <div class="seg" role="group" aria-label="Fabric" style="margin-bottom:12px"><button id="fbT-stock" aria-pressed="true" onclick="fabTab('stock')">Stock</button><button id="fbT-move" aria-pressed="false" onclick="fabTab('move')">Move fabric</button><button id="fbT-lib" aria-pressed="false" onclick="fabTab('lib')">Fabrics</button></div>
+  <div id="fbStock">
+    <div class="card" id="fbLots"><div class="skel"></div></div>
+    <div class="sec-title">Recent moves</div><div class="card" id="fbRecent"></div>
+  </div>
+  <div id="fbMove" class="hide"><div class="card">
+    <div class="field"><label class="l" for="fmMove">What happened</label><select class="in" id="fmMove" onchange="fmShow()">
+      <option value="Leftover to stock">Fabric left over after cutting - put it in stock</option>
+      <option value="Use from stock">Fabric taken from stock for an order</option>
+      <option value="Wastage">Stock fabric is wasted / not usable</option></select></div>
+    <div class="field" id="fmBuyBox"><label class="l" for="fmBuy">From which fabric bill</label><select class="in" id="fmBuy" onchange="fmHint()"></select></div>
+    <div class="field hide" id="fmLotBox"><label class="l" for="fmLot">Fabric in stock</label><select class="in" id="fmLot" onchange="fmHint()"></select></div>
+    <div class="field hide" id="fmOrderBox"><label class="l" for="fmOrder">For order</label><input class="in" id="fmOrder" list="orderList" autocomplete="off"></div>
+    <div class="two">
+      <div class="field"><label class="l" for="fmKg">Kg <span class="req">*</span></label><input class="in" id="fmKg" type="number" inputmode="decimal" oninput="fmHint()"></div>
+      <div class="field"><label class="l" for="fmDate">Date</label><input class="in" id="fmDate" type="date"></div>
+    </div>
+    <div class="field"><label class="l" for="fmNote">Note <span class="opt" id="fmNoteOpt">(optional)</span></label><input class="in" id="fmNote"></div>
+    <div class="hint" id="fmHint"></div>
+    <button class="btn" id="fmSave" onclick="saveMove()">Save</button>
+    <div id="fmResult" role="status"></div>
+  </div></div>
+  <div id="fbLib" class="hide">
+    <div class="card" id="fbBook"></div>
+    <div class="sec-title">Add a new fabric</div>
+    <div class="card">
+      <div class="two">
+        <div class="field"><label class="l" for="nfCode">Code <span class="req">*</span></label><input class="in" id="nfCode" placeholder="e.g. R5" autocapitalize="characters"></div>
+        <div class="field"><label class="l" for="nfType">Fabric <span class="req">*</span></label><select class="in" id="nfType"></select></div>
+      </div>
+      <div class="two">
+        <div class="field"><label class="l" for="nfColor">Colour <span class="req">*</span></label><input class="in" id="nfColor" placeholder="e.g. Red"></div>
+        <div class="field"><label class="l" for="nfShade">Shade</label><input class="in" id="nfShade" placeholder="e.g. dark, from Malik Fabric"></div>
+      </div>
+      <div class="field"><label class="l" for="nfNote">Note <span class="opt">(optional)</span></label><input class="in" id="nfNote" placeholder="supplier, feel, anything useful"></div>
+      <div class="field"><span class="l">Swatch photo <span class="req">*</span></span><label class="drop" for="nfSwatch"><svg class="i ic"><use href="#i-camera"/></svg><span><b>Add swatch photo</b><small>Clear photo in daylight, fabric filling the frame</small></span><input id="nfSwatch" type="file" accept="image/*" onchange="pick(this)"></label><div class="thumbs" id="nfSwatch-th"></div></div>
+      <button class="btn" id="nfSave" onclick="saveFabric()">Add fabric</button>
+    </div>
+    <div class="sec-title">All fabrics</div>
+    <div class="card" id="fbList"></div>
+    <input id="swPick" type="file" accept="image/*" class="hide" onchange="saveSwatch(this)">
+  </div>
+</section>
+
+<section id="s-income" class="hide">
+  <div class="card">
+    <div class="field"><label class="l" for="icKind">What was sold <span class="req">*</span></label><select class="in" id="icKind"></select></div>
+    <div class="two">
+      <div class="field"><label class="l" for="icAmt">Amount <span class="req">*</span></label><div class="money"><span>Rs</span><input class="in" id="icAmt" type="number" inputmode="decimal"></div></div>
+      <div class="field"><label class="l" for="icDate">Date</label><input class="in" id="icDate" type="date"></div>
+    </div>
+    <div class="field"><label class="l" for="icBuyer">Sold to <span class="req">*</span></label><input class="in" id="icBuyer" placeholder="e.g. Kabari / scrap buyer name"></div>
+    <div class="two">
+      <div class="field"><label class="l" for="icInto">Money received by</label><select class="in" id="icInto"></select></div>
+      <div class="field"><label class="l" for="icKg">Kg <span class="opt">(optional)</span></label><input class="in" id="icKg" type="number" inputmode="decimal"></div>
+    </div>
+    <div class="field"><span class="l">Receipt <span class="opt">(optional)</span></span><label class="drop" for="icProof"><svg class="i ic"><use href="#i-camera"/></svg><span><b>Add photo</b></span><input id="icProof" type="file" accept="image/*,application/pdf" onchange="pick(this)"></label><div class="thumbs" id="icProof-th"></div></div>
+    <div class="field"><label class="l" for="icNote">Note <span class="opt">(optional)</span></label><input class="in" id="icNote"></div>
+    <div class="hint">This is company income. It goes into the cash of whoever received it and into the monthly profit, not into any order.</div>
+    <button class="btn" id="icSave" onclick="saveIncome()">Save income</button>
+    <div id="icResult" role="status"></div>
+  </div>
+  <div class="sec-title">Recent</div><div class="card" id="icList"></div>
+</section>
+
 <section id="s-statement" class="hide">
   <div class="card">
     <div class="field"><span class="l">Statement <span class="req">*</span></span>
@@ -588,7 +666,7 @@ function setSeg(id,val){ $(id).querySelectorAll('button').forEach(b=>b.setAttrib
 
 /* ---------------- navigation ---------------- */
 const TITLES={home:'Ethletia Accounts',expense:'Add spending',cash:'Give cash',pending:'Accept cash',invoice:'Add invoice',payment:'Payment received',
-  statement:'Bank statement',sheets:'Sheets and Drive',loan:'Loans',history:'Entries',users:'People',balances:'Balances and flags',report:'Monthly report',missing:'Missing records',login:'Ethletia Accounts'};
+  statement:'Bank statement',sheets:'Sheets and Drive',loan:'Loans',history:'Entries',users:'People',balances:'Balances and flags',report:'Monthly report',missing:'Missing records',fabric:'Fabric stock',income:'Other income',login:'Ethletia Accounts'};
 function go(s, noPush){
   if(s!=='expense') EDIT=null;
   cur=s;
@@ -603,7 +681,7 @@ function go(s, noPush){
   if(!noPush && !login) try{ history.pushState({s},'' ); }catch(e){}
   window.scrollTo(0,0);
   const init={expense:initExpense,cash:initCash,pending:renderPending,invoice:initInvoice,payment:initPayment,statement:initStatement,
-    sheets:initSheets,loan:initLoan,users:loadUsers,history:loadHistory,balances:loadBalances,report:initReport,missing:loadMissing}[s];
+    sheets:initSheets,loan:initLoan,users:loadUsers,history:loadHistory,balances:loadBalances,report:initReport,missing:loadMissing,fabric:initFabric,income:initIncome}[s];
   if(init) init();
 }
 window.addEventListener('popstate',()=>{ if(B && cur!=='home') go('home',true); });
@@ -658,7 +736,7 @@ function afterHome(){
     $('missSub').textContent=m.label+' closes on '+m.closes; store('eth_miss',m);
   }).catch(()=>{});
 }
-const EMO={expense:'🧾',cash:'💵',pending:'✅',history:'📋',invoice:'📄',payment:'🏦',statement:'📑',missing:'⚠️',report:'📈',balances:'📊',loan:'🤝',users:'👥',sheets:'🗂️',pin:'🔑',bio:'🔒'};
+const EMO={fabric:'🧵',income:'💰',expense:'🧾',cash:'💵',pending:'✅',history:'📋',invoice:'📄',payment:'🏦',statement:'📑',missing:'⚠️',report:'📈',balances:'📊',loan:'🤝',users:'👥',sheets:'🗂️',pin:'🔑',bio:'🔒'};
 function renderHome(){
   $('hiName').textContent=B.user.name+' · '+B.user.role;
   $('hiDate').textContent=new Date(B.today+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
@@ -667,8 +745,12 @@ function renderHome(){
   const n=B.pending.length;
   $('pendCard').classList.toggle('hide',!n); $('pendText').textContent=n+' cash '+(n>1?'entries':'entry')+' waiting for you';
   $('navBadge').classList.toggle('hide',!n); $('navBadge').textContent=n;
-  const groups=[['Record',[['expense','receipt','Add spending'],['cash','send','Give cash'],['pending','check','Accept cash',n],['history','list','Entries']]]];
-  if(canMoney()) groups.push(['Money in',[['invoice','file','Invoice'],['payment','bank','Payment received'],['statement','table','Bank statement']]]);
+  const groups=[['Record',[['expense','receipt','Add spending'],['cash','send','Give cash'],['pending','check','Accept cash',n],['history','list','Entries'],['fabric','list','Fabric stock',B.swatchMissing||0]]]];
+  if(canMoney()) groups.push(['Money in',[['invoice','file','Invoice'],['payment','bank','Payment received'],['statement','table','Bank statement'],['income','coins','Other income']]]);
+  else if(B.user.role==='Manager') groups.push(['Money in',[['income','coins','Other income']]]);
+  const ft=(B.fabricTodo||[]).length; $('fabTodoCard').classList.toggle('hide',!ft);
+  $('fabTodoText').textContent=ft+' fabric '+(ft>1?'bills need':'bill needs')+' the fabric details'+(ft===1?' ('+B.fabricTodo[0].paidTo+', '+rs(B.fabricTodo[0].amount)+')':'');
+  const sm=B.swatchMissing||0; $('swCard').classList.toggle('hide',!sm); $('swText').textContent=sm+' fabric'+(sm>1?'s have':' has')+' no swatch photo yet';
   const rep=[]; if(canMoney()) rep.push(['missing','alert','Missing records'],['report','bars','Monthly report'],['balances','line','Balances and flags']);
   if(isP()) rep.push(['loan','coins','Loans'],['users','users','People']);
   if(canMoney() && B.links) rep.push(['sheets','table','Sheets and Drive']);
@@ -705,7 +787,8 @@ function initExpense(){
   $('exBillReq').classList.toggle('hide', exType==='Personal');
   $('exChqHint').textContent='';
   setMulti(false); $('billNote').innerHTML='';
-  if(!EDIT){ resetFields(['exOrder','exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto']); $('exOwn').checked=false; $('exOrderInfo').textContent=''; $('exMock').classList.add('hide'); }
+  $('exFab').innerHTML='<option value="">Choose fabric</option>'+opts((B.fabrics||[]).map(f=>({v:f.code,l:f.label})))+'<option value="__new">+ Add new fabric</option>';
+  if(!EDIT){ resetFields(['exOrder','exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto','exFab','exGsm','exKg']); $('exOwn').checked=false; $('exOrderInfo').textContent=''; $('exMock').classList.add('hide'); }
   setType(exType==='Personal'&&!isP()?'Order':exType);
   $('exEditInfo').innerHTML=''; $('exSave').textContent=EDIT?'Save changes':'Save spending';
   if(EDIT){
@@ -714,6 +797,7 @@ function initExpense(){
     $('exDesc').value=e.description||''; $('exAmt').value=e.amount; exModeV=e.mode; setSeg('exMode',e.mode);
     if(B.users.some(u=>u.name===e.paidFrom)) $('exFrom').value=e.paidFrom;
     $('exOwn').checked=String(e.paidFrom||'').indexOf('Own pocket - ')===0;
+    $('exFab').value=e.fabricCode||''; $('exGsm').value=e.gsm||''; $('exKg').value=e.kg||'';
     $('exChq').value=e.chequeNo||''; $('exRef').value=e.billRef||''; $('exEth').value=e.ethNo||''; if(e.personalOf) $('exPersonalOf').value=e.personalOf;
     $('exBillReq').classList.toggle('hide', e.type==='Personal'||!!e.bill);
     $('exEditInfo').innerHTML='<div class="note info" style="margin:0 0 12px">Editing an entry by '+esc(e.by)+'. Your name is saved with every change.'+
@@ -734,8 +818,12 @@ function setType(t){
   const keep=$('exCat').value;
   $('exCat').innerHTML='<option value="">'+(t==='Personal'?'No category':'Choose category')+'</option>'+opts(B.cats[t]);
   if(B.cats[t].indexOf(keep)>=0) $('exCat').value=keep;
-  modeChanged();
+  fabShow(); modeChanged();
 }
+function isFabCat(){ return exType!=='Personal' && (B.fabricCats||[]).indexOf($('exCat').value)>=0; }
+function fabShow(){ $('exFabBox').classList.toggle('hide',!isFabCat()); fabRate(); }
+function fabRate(){ const a=Number($('exAmt').value), k=Number($('exKg').value); $('exFabRate').textContent=a&&k?'Rate: '+rs(Math.round(a/k))+' per kg':''; }
+function fabTodoGo(){ const t=B.fabricTodo||[]; if(t.length===1) return editEntry(t[0].id); histT='e'; go('history'); }
 function modeChanged(){
   const m=exModeV;
   $('exChqBox').classList.toggle('hide', m!=='Cheque');
@@ -801,7 +889,8 @@ async function readCheque(){
 function saveExpense(){ busy('exSave', async()=>{
   const p={date:$('exDate').value,type:exType,order:$('exOrder').value,category:$('exCat').value,paidTo:$('exPaidTo').value.trim(),
     description:$('exDesc').value,amount:$('exAmt').value,mode:exModeV,paidFrom:$('exFrom').value,chequeNo:$('exChq').value.trim(),
-    billRef:$('exRef').value,ethNo:$('exEth').value.trim(),personalOf:$('exPersonalOf').value,ownPocket:isP()&&exType!=='Personal'&&$('exOwn').checked};
+    billRef:$('exRef').value,ethNo:$('exEth').value.trim(),personalOf:$('exPersonalOf').value,ownPocket:isP()&&exType!=='Personal'&&$('exOwn').checked,
+    fabricCode:$('exFab').value,gsm:$('exGsm').value,kg:$('exKg').value};
   if(exType==='Order' && exMultiOn && !EDIT){
     const L=splitVals().filter(l=>l.order||l.amount);
     need(L.length>=2,'exSplit','Add at least two orders');
@@ -811,6 +900,7 @@ function saveExpense(){ busy('exSave', async()=>{
   else if(exType==='Order') need(B.orders.some(o=>o.name===p.order),'exOrder','Pick the order from the list');
   if(exType!=='Personal') need(p.category,'exCat','Choose a category');
   need(Number(p.amount)>0,'exAmt','Enter the amount');
+  if(isFabCat()){ need(p.fabricCode&&p.fabricCode!=='__new','exFab','Choose the fabric code'); need(Number(p.gsm)>=80,'exGsm','Enter the GSM'); need(Number(p.kg)>0,'exKg','Enter the kg'); }
   need(p.paidTo,'exPaidTo','Who was paid?');
   if(p.mode==='Cheque'){ need(p.chequeNo,'exChq','Enter the cheque number'); }
   p.bill=await files('exBill'); p.cheque=p.mode==='Cheque'?await files('exChqPhoto'):[];
@@ -826,7 +916,7 @@ function saveExpense(){ busy('exSave', async()=>{
   $('exResult').innerHTML='<div class="note ok" role="status">Saved '+rs(p.amount)+(p.splits?' for '+p.splits.length+' orders ('+esc(p.splits.map(l=>l.order+' '+rs(l.amount)).join(', '))+')':'')+'. Write this number on the bill:<div class="big-no">'+esc(r.billNo)+'</div>'+
     (p.ownPocket?'The company now owes you '+rs(p.amount)+'. ':'')+'</div>'+(warn.length?'<div class="note bad">Check: '+esc(warn.join('; '))+'</div>':'');
   $('exResult').scrollIntoView({block:'center',behavior:'smooth'});
-  resetFields(['exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto']); $('exOwn').checked=false; $('exChqHint').textContent=''; setMulti(false); $('billNote').innerHTML=''; modeChanged();
+  resetFields(['exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto','exFab','exGsm','exKg']); fabRate(); $('exOwn').checked=false; $('exChqHint').textContent=''; setMulti(false); $('billNote').innerHTML=''; modeChanged();
   refresh();
 }); }
 
@@ -973,6 +1063,76 @@ function saveStatement(){ busy('stSave', async()=>{
       '<span class="chip '+(b.status==='Missing'?'bad':'warn')+'">'+(b.status==='Missing'?'Missing '+b.age+' days':'Waiting '+b.age+' of '+(B.bankGrace||6)+' days')+'</span></div><div class="amt">'+rs(b.amount)+'</div></div>').join(''):'<div class="muted">'+(r.bankLines?'All '+r.bankLines+' bank lines match entries in the app.':'No bank lines could be read from it.')+'</div>')+'</div>':'')+
     '<div class="sec-title">Payments '+esc(r.from)+' to '+esc(r.to)+', by order</div><div class="card">'+(r.payments.length?r.payments.map(payCard).join(''):'<div class="muted">No payments entered for this period.</div>')+'</div>';
   resetFields(['stNote','stPhoto']);
+}); }
+
+/* ---------------- fabric stock ---------------- */
+let FB=null;
+const thumbUrl=id=>'https://drive.google.com/thumbnail?id='+encodeURIComponent(id)+'&sz=w200';
+function fabTab(t){ ['stock','move','lib'].forEach(x=>{ $('fbT-'+x).setAttribute('aria-pressed',String(x===t)); $('fb'+{stock:'Stock',move:'Move',lib:'Lib'}[x]).classList.toggle('hide',x!==t); }); }
+async function initFabric(){
+  $('fmDate').value=B.today; $('fmDate').max=B.today; $('fmResult').innerHTML='';
+  $('nfType').innerHTML=opts(B.fabricTypes||['Fleece'],'Fleece');
+  $('fbLots').innerHTML='<div class="skel"></div><div class="skel"></div>';
+  try{ FB=await call('fabrics'); }catch(e){ $('fbLots').innerHTML='<div class="note bad">'+esc(e.message)+'</div>'; return; }
+  const sw=f=>f&&f.swatch?'<img class="sw" src="'+thumbUrl(f.swatch)+'" alt="'+esc(f.code)+' swatch" loading="lazy" onerror="this.outerHTML=\'<div class=sw>'+esc(f.code)+'</div>\'">':'<div class="sw">no swatch</div>';
+  const byCode={}; FB.fabrics.forEach(f=>byCode[f.code.toUpperCase()]=f);
+  const tot=FB.lots.reduce((a,l)=>({kg:a.kg+l.kg,v:a.v+l.value}),{kg:0,v:0});
+  $('fbLots').innerHTML=FB.lots.length?'<div class="kv"><span>In stock</span><b>'+Math.round(tot.kg*10)/10+' kg · '+rs(tot.v)+'</b></div>'+FB.lots.map(l=>'<div class="item">'+sw(byCode[l.code])+'<div class="main"><div class="ttl">'+esc(l.code)+' · '+esc(l.kind)+' · '+l.gsm+' GSM</div>'+
+    '<div class="meta">'+l.kg+' kg @ '+rs(l.rate)+'/kg · since '+esc(l.since)+(l.from.length?' · '+esc(l.from.slice(0,3).join(', ')):'')+'</div>'+(l.days>=60?'<span class="chip bad">'+l.days+' days in stock</span>':'')+'</div><div class="amt">'+rs(l.value)+'</div></div>').join('')
+    :'<div class="muted">No fabric in stock. When fabric is left over after cutting, use "Move fabric".</div>';
+  $('fbRecent').innerHTML=FB.recent.length?FB.recent.map(m=>'<div class="item"><div class="main"><div class="ttl">'+esc(m.move)+' · '+esc(m.code)+' '+m.kg+' kg</div><div class="meta">'+esc(m.date)+(m.order?' · '+esc(m.order):'')+' · '+esc(m.by)+(m.note?' · '+esc(m.note):'')+'</div></div><div class="amt">'+rs(m.amount)+'</div></div>').join(''):'<div class="muted">Nothing yet.</div>';
+  $('fmBuy').innerHTML=FB.buys.length?FB.buys.map(b=>'<option value="'+esc(b.id)+'">'+esc(b.order+' · '+b.code+' '+b.kind+' '+b.gsm+' GSM · '+b.left+' of '+b.kg+' kg · '+b.paidTo+' '+b.date)+'</option>').join(''):'<option value="">No fabric bills with kg yet</option>';
+  $('fmLot').innerHTML=FB.lots.length?FB.lots.map(l=>'<option value="'+esc(l.key)+'">'+esc(l.code+' · '+l.kind+' · '+l.gsm+' GSM · '+l.kg+' kg @ Rs '+l.rate)+'</option>').join(''):'<option value="">Stock is empty</option>';
+  $('fbBook').innerHTML='<div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><b>Swatch book</b><span>'+
+    (FB.book?'<a href="'+esc(FB.book)+'" target="_blank" rel="noopener">Open</a> · ':'')+(FB.bookPdf?'<a href="'+esc(FB.bookPdf)+'" target="_blank" rel="noopener">PDF</a> · ':'')+
+    '<a href="#" onclick="rebuildBook();return false">'+(FB.book?'Update':'Make it now')+'</a></span></div><div class="hint">Updates itself whenever a fabric or swatch is added.</div>';
+  $('fbList').innerHTML=FB.fabrics.map(f=>'<div class="item">'+sw(f)+'<div class="main"><div class="ttl">'+esc(f.code)+' · '+esc(f.color)+(f.shade?' ('+esc(f.shade)+')':'')+'</div>'+
+    '<div class="meta">'+esc(f.type)+(f.gsms.length?' · GSM '+esc(f.gsms.join(', ')):'')+(f.stockKg?' · '+Math.round(f.stockKg*10)/10+' kg in stock':'')+'</div>'+
+    '<button class="btn sec sm" style="margin-top:6px" onclick="pickSwatch(\''+esc(f.code)+'\')">'+(f.swatch?'Change swatch':'Add swatch photo')+'</button></div></div>').join('');
+  fmShow();
+}
+function fmShow(){ const m=$('fmMove').value;
+  $('fmBuyBox').classList.toggle('hide',m!=='Leftover to stock'); $('fmLotBox').classList.toggle('hide',m==='Leftover to stock');
+  $('fmOrderBox').classList.toggle('hide',m!=='Use from stock'); $('fmNoteOpt').textContent=m==='Wastage'?'*':'(optional)'; fmHint(); }
+function fmHint(){ if(!FB) return; const m=$('fmMove').value, k=Number($('fmKg').value)||0; let t='';
+  if(m==='Leftover to stock'){ const b=FB.buys.find(x=>x.id===$('fmBuy').value); if(b) t=b.left+' kg can still be moved. '+(k?rs(Math.round(k*b.rate))+' comes off '+b.order+"'s cost and goes into stock.":''); }
+  else { const l=FB.lots.find(x=>x.key===$('fmLot').value); if(l) t=l.kg+' kg in stock at '+rs(l.rate)+'/kg. '+(k?(m==='Wastage'?rs(Math.round(k*l.rate))+' will be shown as company loss.':rs(Math.round(k*l.rate))+' will be added to the order cost.'):''); }
+  $('fmHint').textContent=t; }
+function saveMove(){ busy('fmSave', async()=>{
+  const p={move:$('fmMove').value,kg:$('fmKg').value,date:$('fmDate').value,note:$('fmNote').value,expenseId:$('fmBuy').value,lot:$('fmLot').value,order:$('fmOrder').value};
+  if(p.move==='Use from stock') need(B.orders.some(o=>o.name===p.order),'fmOrder','Pick the order from the list');
+  if(p.move==='Wastage') need(p.note,'fmNote','Write why it is wastage');
+  const r=await call('fabricMove',p);
+  resetFields(['fmKg','fmNote','fmOrder']); await initFabric();
+  $('fmResult').innerHTML='<div class="note ok">Saved: '+esc(p.move)+' '+esc(r.code)+' '+p.kg+' kg = '+rs(r.amount)+(r.order?' ('+esc(r.order)+')':'')+'.</div>'; fabTab('move');
+}); }
+function saveFabric(){ busy('nfSave', async()=>{
+  const p={code:$('nfCode').value.trim().toUpperCase(),type:$('nfType').value,color:$('nfColor').value.trim(),shade:$('nfShade').value.trim(),note:$('nfNote').value};
+  need(p.code,'nfCode','Enter a code'); need(p.color,'nfColor','Enter the colour');
+  p.swatch=await files('nfSwatch'); need(p.swatch.length,'nfSwatch','Add the swatch photo');
+  await call('addFabric',p); toast(p.code+' added',true);
+  resetFields(['nfCode','nfColor','nfShade','nfNote','nfSwatch']); await refresh(); await initFabric(); fabTab('lib');
+}); }
+let swCode='';
+function pickSwatch(c){ swCode=c; $('swPick').value=''; $('swPick').click(); }
+async function saveSwatch(inp){ if(!inp.files.length) return; try{ toast('Saving swatch...',true); const sw=await files('swPick'); await call('setSwatch',{code:swCode,swatch:sw}); toast('Swatch saved for '+swCode,true); await refresh(); await initFabric(); fabTab('lib'); }catch(e){ toast(e.message,false); } }
+async function rebuildBook(){ try{ toast('Making the swatch book...',true); const r=await call('swatchBook',{}); toast('Swatch book ready',true); await initFabric(); fabTab('lib'); window.open(r.doc,'_blank'); }catch(e){ toast(e.message,false); } }
+
+/* ---------------- other income ---------------- */
+async function initIncome(){
+  $('icDate').value=B.today; $('icDate').max=B.today; $('icResult').innerHTML='';
+  $('icKind').innerHTML=opts(B.otherKinds||['Other']);
+  $('icInto').innerHTML=opts(B.users.map(u=>u.name).concat(['Company Bank']),B.user.name);
+  try{ const r=await call('incomes'); $('icList').innerHTML=r.list.length?r.list.map(x=>'<div class="item"><div class="main"><div class="ttl">'+esc(x.kind)+' · '+esc(x.buyer)+'</div><div class="meta">'+esc(x.date)+' · received by '+esc(x.into)+(x.kg?' · '+x.kg+' kg':'')+' · '+esc(x.by)+(x.note?' · '+esc(x.note):'')+'</div></div><div class="amt">'+rs(x.amount)+'</div></div>').join(''):'<div class="muted">Nothing yet.</div>'; }catch(e){ $('icList').innerHTML='<div class="note bad">'+esc(e.message)+'</div>'; }
+}
+function saveIncome(){ busy('icSave', async()=>{
+  const p={kind:$('icKind').value,amount:$('icAmt').value,date:$('icDate').value,buyer:$('icBuyer').value.trim(),into:$('icInto').value,kg:$('icKg').value,note:$('icNote').value};
+  need(Number(p.amount)>0,'icAmt','Enter the amount'); need(p.buyer,'icBuyer','Who bought it?');
+  p.proof=await files('icProof');
+  const r=await call('addIncome',p); B.balance=r.balance;
+  resetFields(['icAmt','icBuyer','icKg','icNote','icProof']); await initIncome();
+  $('icResult').innerHTML='<div class="note ok">Saved '+rs(p.amount)+'. It is now in '+esc(p.into)+"'s cash and in this month's profit.</div>";
+  refresh();
 }); }
 
 /* ---------------- loans ---------------- */
