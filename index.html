@@ -236,6 +236,7 @@ textarea.in{min-height:80px;resize:vertical}
   <button class="banner warn hide" id="pendCard" onclick="go('pending')"><svg class="i"><use href="#i-check"/></svg><span class="grow"><b id="pendText"></b><span>Tap to accept or reject</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <button class="banner warn hide" id="fabTodoCard" onclick="fabTodoGo()"><svg class="i"><use href="#i-alert"/></svg><span class="grow"><b id="fabTodoText"></b><span>Tap and choose the fabric code, GSM and kg</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <button class="banner warn hide" id="swCard" onclick="go('fabric');fabTab('lib')"><svg class="i"><use href="#i-camera"/></svg><span class="grow"><b id="swText"></b><span>Add a clear swatch photo for each one</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
+  <div class="note bad hide" id="dupCard" role="status"></div>
   <button class="banner bad hide" id="lowCard" onclick="go('fabric');fabTab('acc')"><svg class="i"><use href="#i-alert"/></svg><span class="grow"><b id="lowText"></b><span>Order more before it runs out</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <button class="banner bad hide" id="missCard" onclick="go('missing')"><svg class="i"><use href="#i-alert"/></svg><span class="grow"><b id="missText"></b><span id="missSub"></span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <div id="tiles"></div>
@@ -649,9 +650,22 @@ const ic=(n,c)=>'<svg class="i'+(c?' '+c:'')+'" aria-hidden="true"><use href="#i
 function store(k,v){ try{ if(v==null) localStorage.removeItem(k); else localStorage.setItem(k, typeof v==='string'?v:JSON.stringify(v)); }catch(e){} }
 function load(k,json){ try{ const v=localStorage.getItem(k); return json?(v?JSON.parse(v):null):v; }catch(e){ return null; } }
 
+/* One request id per filled form: if the signal drops and the button is tapped again, the server sees the same id and does not save twice. */
+const WRITES=['addExpense','editExpense','addCash','respondCash','addInvoice','addPayment','addStatement','addLoan','addRepayment','addUser','addFabric','setSwatch','fabricMove','addIncome','itemMove','saveItem'];
+let RID={}, CUR_SEC=null;
+function ridFor(payload){
+  if(!CUR_SEC) return '';
+  if(!RID[CUR_SEC]) RID[CUR_SEC]=Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  const j=JSON.stringify(payload,(k,v)=>typeof v==='string'&&v.length>300?v.length:v); let h=5381;
+  for(let i=0;i<j.length;i++) h=((h<<5)+h+j.charCodeAt(i))|0;
+  return RID[CUR_SEC]+'.'+(h>>>0).toString(36);
+}
 function call(action, payload){
-  return rpc('api',[T,action,payload||{}]).then(r=>{
+  payload=payload||{};
+  if(WRITES.indexOf(action)>=0 && !payload.rid){ const r=ridFor(payload); if(r) payload.rid=r; }
+  return rpc('api',[T,action,payload]).then(r=>{
     if(r && r.error){ if(r.error==='SESSION'){ doLogout(true); throw new Error('Please sign in again'); } throw new Error(r.error); }
+    if(r && (r.repeat||r.duplicate)) setTimeout(()=>toast('This was already saved'+(r.billNo?' as '+r.billNo:'')+'. Not added again.',true),400);
     return r;
   });
 }
@@ -682,12 +696,13 @@ function clearErrs(root){ root.querySelectorAll('.err').forEach(e=>e.textContent
 async function busy(btnId, fn){
   const b=$(btnId), sec=b.closest('section'), t=b.innerHTML; clearErrs(sec);
   b.disabled=true; b.innerHTML='<span class="spin" aria-hidden="true"></span>Saving...';
-  try{ await fn(); }
+  CUR_SEC=(sec&&sec.id)||btnId;
+  try{ await fn(); delete RID[CUR_SEC]; }
   catch(e){
     if(e.fid && $(e.fid+'-err')){ $(e.fid+'-err').textContent=e.message; const f=$(e.fid); if(f){ f.setAttribute('aria-invalid','true'); f.focus({preventScroll:true}); f.scrollIntoView({block:'center',behavior:'smooth'}); } }
     toast(e.message||String(e), false);
   }
-  finally{ b.disabled=false; b.innerHTML=t; }
+  finally{ CUR_SEC=null; b.disabled=false; b.innerHTML=t; }
 }
 
 /* ---------------- files: compress photos, show thumbnails ---------------- */
@@ -809,6 +824,8 @@ function renderHome(){
   else if(B.user.role==='Manager') groups.push(['Money in',[['income','coins','Other income']]]);
   const ft=(B.fabricTodo||[]).length; $('fabTodoCard').classList.toggle('hide',!ft);
   $('fabTodoText').textContent=ft+' fabric '+(ft>1?'bills need':'bill needs')+' the fabric details'+(ft===1?' ('+B.fabricTodo[0].paidTo+', '+rs(B.fabricTodo[0].amount)+')':'');
+  const rd=B.removedDups||[]; $('dupCard').classList.toggle('hide',!rd.length);
+  $('dupCard').innerHTML=rd.length?'<b>Duplicate entries removed</b><br>'+rd.map(x=>esc(x.summary)+(isP()?' ('+esc(x.by)+')':'')+' was saved twice. The extra copy was removed, the first one stays.').join('<br>'):'';
   const lw=B.lowStock||[]; $('lowCard').classList.toggle('hide',!lw.length); $('lowText').textContent='Low stock: '+lw.map(x=>x.item+' '+x.qty).join(', ');
   const sm=B.swatchMissing||0; $('swCard').classList.toggle('hide',!sm); $('swText').textContent=sm+' fabric'+(sm>1?'s have':' has')+' no swatch photo yet';
   const rep=[]; if(canMoney()) rep.push(['missing','alert','Missing records'],['report','bars','Monthly report'],['balances','line','Balances and flags']);
@@ -981,7 +998,7 @@ function saveExpense(){ busy('exSave', async()=>{
   const r=await call('addExpense',p);
   B.balance=r.balance; renderHome();
   const warn=r.flags.filter(f=>f!=='No bill photo');
-  $('exResult').innerHTML='<div class="note ok" role="status">Saved '+rs(p.amount)+(p.splits?' for '+p.splits.length+' orders ('+esc(p.splits.map(l=>l.order+' '+rs(l.amount)).join(', '))+')':'')+'. Write this number on the bill:<div class="big-no">'+esc(r.billNo)+'</div>'+
+  $('exResult').innerHTML=(r.repeat||r.duplicate?'<div class="note bad" role="status">This bill was already saved a moment ago, so it was not added again.</div>':'')+'<div class="note ok" role="status">Saved '+rs(p.amount)+(p.splits?' for '+p.splits.length+' orders ('+esc(p.splits.map(l=>l.order+' '+rs(l.amount)).join(', '))+')':'')+'. Write this number on the bill:<div class="big-no">'+esc(r.billNo)+'</div>'+
     (p.ownPocket?'The company now owes you '+rs(p.amount)+'. ':'')+'</div>'+(warn.length?'<div class="note bad">Check: '+esc(warn.join('; '))+'</div>':'');
   $('exResult').scrollIntoView({block:'center',behavior:'smooth'});
   resetFields(['exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto','exFab','exGsm','exKg','exItem','exQty']); fabRate(); $('exOwn').checked=false; $('exChqHint').textContent=''; setMulti(false); $('billNote').innerHTML=''; modeChanged();
