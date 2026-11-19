@@ -236,6 +236,7 @@ textarea.in{min-height:80px;resize:vertical}
   <button class="banner warn hide" id="pendCard" onclick="go('pending')"><svg class="i"><use href="#i-check"/></svg><span class="grow"><b id="pendText"></b><span>Tap to accept or reject</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <button class="banner warn hide" id="fabTodoCard" onclick="fabTodoGo()"><svg class="i"><use href="#i-alert"/></svg><span class="grow"><b id="fabTodoText"></b><span>Tap and choose the fabric code, GSM and kg</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <button class="banner warn hide" id="swCard" onclick="go('fabric');fabTab('lib')"><svg class="i"><use href="#i-camera"/></svg><span class="grow"><b id="swText"></b><span>Add a clear swatch photo for each one</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
+  <button class="banner bad hide" id="lowCard" onclick="go('fabric');fabTab('acc')"><svg class="i"><use href="#i-alert"/></svg><span class="grow"><b id="lowText"></b><span>Order more before it runs out</span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <button class="banner bad hide" id="missCard" onclick="go('missing')"><svg class="i"><use href="#i-alert"/></svg><span class="grow"><b id="missText"></b><span id="missSub"></span></span><svg class="i sm"><use href="#i-chev"/></svg></button>
   <div id="tiles"></div>
 </section>
@@ -257,6 +258,10 @@ textarea.in{min-height:80px;resize:vertical}
       <div class="err" id="exSplit-err"></div></div>
     <div class="field hide" id="exPersonalBox"><label class="l" for="exPersonalOf">Personal spending of</label><select class="in" id="exPersonalOf"></select></div>
     <div class="field"><label class="l" for="exCat">Category <span class="req" id="exCatReq">*</span></label><select class="in" id="exCat" onchange="fabShow()"></select><div class="err" id="exCat-err"></div></div>
+    <div class="hide" id="exItemBox"><div class="two">
+      <div class="field"><label class="l" for="exItem">Item <span class="req">*</span></label><select class="in" id="exItem"></select><div class="err" id="exItem-err"></div></div>
+      <div class="field"><label class="l" for="exQty">Pieces <span class="req">*</span></label><input class="in" id="exQty" type="number" inputmode="numeric" oninput="fabRate()"><div class="err" id="exQty-err"></div></div>
+    </div></div>
     <div class="hide" id="exFabBox">
       <div class="field"><label class="l" for="exFab">Fabric code <span class="req">*</span></label><select class="in" id="exFab" onchange="if(this.value==='__new'){go('fabric');fabTab('lib');}"></select><div class="err" id="exFab-err"></div>
         <div class="hint">New colour? Choose "+ Add new fabric" and add it with its swatch photo first.</div></div>
@@ -375,7 +380,41 @@ textarea.in{min-height:80px;resize:vertical}
 
 <!-- STATEMENT -->
 <section id="s-fabric" class="hide">
-  <div class="seg" role="group" aria-label="Fabric" style="margin-bottom:12px"><button id="fbT-stock" aria-pressed="true" onclick="fabTab('stock')">Stock</button><button id="fbT-move" aria-pressed="false" onclick="fabTab('move')">Move fabric</button><button id="fbT-lib" aria-pressed="false" onclick="fabTab('lib')">Fabrics</button></div>
+  <div class="seg" role="group" aria-label="Fabric" style="margin-bottom:12px"><button id="fbT-stock" aria-pressed="true" onclick="fabTab('stock')">Fabric</button><button id="fbT-acc" aria-pressed="false" onclick="fabTab('acc')">Trims</button><button id="fbT-move" aria-pressed="false" onclick="fabTab('move')">Move fabric</button><button id="fbT-lib" aria-pressed="false" onclick="fabTab('lib')">Fabrics</button></div>
+  <div id="fbAcc" class="hide">
+    <div class="card" id="acList"></div>
+    <div class="sec-title">Take from stock</div>
+    <div class="card">
+      <div class="field"><label class="l" for="amMove">What happened</label><select class="in" id="amMove" onchange="amShow()">
+        <option value="Used on order">Used on an order (e.g. boxes at dispatch)</option>
+        <option value="Adjust">Count correction (lost, damaged, counted less)</option>
+        <option value="Opening stock">Already in hand before using the app (opening stock)</option></select></div>
+      <div class="two">
+        <div class="field"><label class="l" for="amItem">Item</label><select class="in" id="amItem"></select></div>
+        <div class="field"><label class="l" for="amQty">How many <span class="req">*</span></label><input class="in" id="amQty" type="number" inputmode="numeric"></div>
+      </div>
+      <div class="field hide" id="amRateBox"><label class="l" for="amRate">Price per piece <span class="req">*</span></label><div class="money"><span>Rs</span><input class="in" id="amRate" type="number" inputmode="decimal"></div></div>
+      <div class="field" id="amOrderBox"><label class="l" for="amOrder">Order</label><input class="in" id="amOrder" list="orderList" autocomplete="off"></div>
+      <div class="two">
+        <div class="field"><label class="l" for="amDate">Date</label><input class="in" id="amDate" type="date"></div>
+        <div class="field"><label class="l" for="amNote">Note <span class="opt" id="amNoteOpt">(optional)</span></label><input class="in" id="amNote"></div>
+      </div>
+      <div class="hint">Care labels, size labels and poly bags are taken from stock automatically when an order is dispatched, by its piece count. Only boxes need to be entered here.</div>
+      <button class="btn" id="amSave" onclick="saveItemMove()">Save</button>
+      <div id="amResult" role="status"></div>
+    </div>
+    <div class="sec-title">Add an item or change its settings</div>
+    <div class="card">
+      <div class="field"><label class="l" for="aiName">Item <span class="req">*</span></label><input class="in" id="aiName" list="aiNames" placeholder="e.g. Hang tag"><datalist id="aiNames"></datalist></div>
+      <div class="two">
+        <div class="field"><label class="l" for="aiPer">Used per piece</label><input class="in" id="aiPer" type="number" inputmode="numeric" placeholder="1, or 0 if entered by hand"></div>
+        <div class="field"><label class="l" for="aiMin">Alert below</label><input class="in" id="aiMin" type="number" inputmode="numeric" placeholder="e.g. 500"></div>
+      </div>
+      <div class="field"><label class="l" for="aiCat">Shows on orders as</label><select class="in" id="aiCat"></select></div>
+      <button class="btn sec" id="aiSave" onclick="saveItemDef()">Save item</button>
+    </div>
+    <div class="sec-title">Recent</div><div class="card" id="acRecent"></div>
+  </div>
   <div id="fbStock">
     <div class="card" id="fbLots"><div class="skel"></div></div>
     <div class="sec-title">Recent moves</div><div class="card" id="fbRecent"></div>
@@ -384,7 +423,18 @@ textarea.in{min-height:80px;resize:vertical}
     <div class="field"><label class="l" for="fmMove">What happened</label><select class="in" id="fmMove" onchange="fmShow()">
       <option value="Leftover to stock">Fabric left over after cutting - put it in stock</option>
       <option value="Use from stock">Fabric taken from stock for an order</option>
-      <option value="Wastage">Stock fabric is wasted / not usable</option></select></div>
+      <option value="Wastage">Stock fabric is wasted / not usable</option>
+      <option value="Opening stock">Fabric already in hand before using the app (opening stock)</option></select></div>
+    <div class="hide" id="fmOpenBox">
+      <div class="two">
+        <div class="field"><label class="l" for="fmCode">Fabric code</label><select class="in" id="fmCode"></select></div>
+        <div class="field"><label class="l" for="fmKind">Fleece or rib</label><select class="in" id="fmKind"><option value="">Fabric</option><option value="Rib">Rib</option></select></div>
+      </div>
+      <div class="two">
+        <div class="field"><label class="l" for="fmGsm">GSM</label><input class="in" id="fmGsm" type="number" inputmode="numeric"></div>
+        <div class="field"><label class="l" for="fmRate">Price per kg</label><div class="money"><span>Rs</span><input class="in" id="fmRate" type="number" inputmode="decimal"></div></div>
+      </div>
+    </div>
     <div class="field" id="fmBuyBox"><label class="l" for="fmBuy">From which fabric bill</label><select class="in" id="fmBuy" onchange="fmHint()"></select></div>
     <div class="field hide" id="fmLotBox"><label class="l" for="fmLot">Fabric in stock</label><select class="in" id="fmLot" onchange="fmHint()"></select></div>
     <div class="field hide" id="fmOrderBox"><label class="l" for="fmOrder">For order</label><input class="in" id="fmOrder" list="orderList" autocomplete="off"></div>
@@ -666,7 +716,7 @@ function setSeg(id,val){ $(id).querySelectorAll('button').forEach(b=>b.setAttrib
 
 /* ---------------- navigation ---------------- */
 const TITLES={home:'Ethletia Accounts',expense:'Add spending',cash:'Give cash',pending:'Accept cash',invoice:'Add invoice',payment:'Payment received',
-  statement:'Bank statement',sheets:'Sheets and Drive',loan:'Loans',history:'Entries',users:'People',balances:'Balances and flags',report:'Monthly report',missing:'Missing records',fabric:'Fabric stock',income:'Other income',login:'Ethletia Accounts'};
+  statement:'Bank statement',sheets:'Sheets and Drive',loan:'Loans',history:'Entries',users:'People',balances:'Balances and flags',report:'Monthly report',missing:'Missing records',fabric:'Stock',income:'Other income',login:'Ethletia Accounts'};
 function go(s, noPush){
   if(s!=='expense') EDIT=null;
   cur=s;
@@ -745,11 +795,12 @@ function renderHome(){
   const n=B.pending.length;
   $('pendCard').classList.toggle('hide',!n); $('pendText').textContent=n+' cash '+(n>1?'entries':'entry')+' waiting for you';
   $('navBadge').classList.toggle('hide',!n); $('navBadge').textContent=n;
-  const groups=[['Record',[['expense','receipt','Add spending'],['cash','send','Give cash'],['pending','check','Accept cash',n],['history','list','Entries'],['fabric','list','Fabric stock',B.swatchMissing||0]]]];
+  const groups=[['Record',[['expense','receipt','Add spending'],['cash','send','Give cash'],['pending','check','Accept cash',n],['history','list','Entries'],['fabric','list','Stock',(B.swatchMissing||0)+(B.lowStock||[]).length]]]];
   if(canMoney()) groups.push(['Money in',[['invoice','file','Invoice'],['payment','bank','Payment received'],['statement','table','Bank statement'],['income','coins','Other income']]]);
   else if(B.user.role==='Manager') groups.push(['Money in',[['income','coins','Other income']]]);
   const ft=(B.fabricTodo||[]).length; $('fabTodoCard').classList.toggle('hide',!ft);
   $('fabTodoText').textContent=ft+' fabric '+(ft>1?'bills need':'bill needs')+' the fabric details'+(ft===1?' ('+B.fabricTodo[0].paidTo+', '+rs(B.fabricTodo[0].amount)+')':'');
+  const lw=B.lowStock||[]; $('lowCard').classList.toggle('hide',!lw.length); $('lowText').textContent='Low stock: '+lw.map(x=>x.item+' '+x.qty).join(', ');
   const sm=B.swatchMissing||0; $('swCard').classList.toggle('hide',!sm); $('swText').textContent=sm+' fabric'+(sm>1?'s have':' has')+' no swatch photo yet';
   const rep=[]; if(canMoney()) rep.push(['missing','alert','Missing records'],['report','bars','Monthly report'],['balances','line','Balances and flags']);
   if(isP()) rep.push(['loan','coins','Loans'],['users','users','People']);
@@ -787,8 +838,9 @@ function initExpense(){
   $('exBillReq').classList.toggle('hide', exType==='Personal');
   $('exChqHint').textContent='';
   setMulti(false); $('billNote').innerHTML='';
+  $('exItem').innerHTML='<option value="">Choose item</option>'+opts((B.items||[]).map(i=>i.name));
   $('exFab').innerHTML='<option value="">Choose fabric</option>'+opts((B.fabrics||[]).map(f=>({v:f.code,l:f.label})))+'<option value="__new">+ Add new fabric</option>';
-  if(!EDIT){ resetFields(['exOrder','exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto','exFab','exGsm','exKg']); $('exOwn').checked=false; $('exOrderInfo').textContent=''; $('exMock').classList.add('hide'); }
+  if(!EDIT){ resetFields(['exOrder','exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto','exFab','exGsm','exKg','exItem','exQty']); $('exOwn').checked=false; $('exOrderInfo').textContent=''; $('exMock').classList.add('hide'); }
   setType(exType==='Personal'&&!isP()?'Order':exType);
   $('exEditInfo').innerHTML=''; $('exSave').textContent=EDIT?'Save changes':'Save spending';
   if(EDIT){
@@ -797,7 +849,7 @@ function initExpense(){
     $('exDesc').value=e.description||''; $('exAmt').value=e.amount; exModeV=e.mode; setSeg('exMode',e.mode);
     if(B.users.some(u=>u.name===e.paidFrom)) $('exFrom').value=e.paidFrom;
     $('exOwn').checked=String(e.paidFrom||'').indexOf('Own pocket - ')===0;
-    $('exFab').value=e.fabricCode||''; $('exGsm').value=e.gsm||''; $('exKg').value=e.kg||'';
+    $('exFab').value=e.fabricCode||''; $('exGsm').value=e.gsm||''; $('exKg').value=e.kg||''; $('exItem').value=e.item||''; $('exQty').value=e.qty||'';
     $('exChq').value=e.chequeNo||''; $('exRef').value=e.billRef||''; $('exEth').value=e.ethNo||''; if(e.personalOf) $('exPersonalOf').value=e.personalOf;
     $('exBillReq').classList.toggle('hide', e.type==='Personal'||!!e.bill);
     $('exEditInfo').innerHTML='<div class="note info" style="margin:0 0 12px">Editing an entry by '+esc(e.by)+'. Your name is saved with every change.'+
@@ -821,8 +873,10 @@ function setType(t){
   fabShow(); modeChanged();
 }
 function isFabCat(){ return exType!=='Personal' && (B.fabricCats||[]).indexOf($('exCat').value)>=0; }
-function fabShow(){ $('exFabBox').classList.toggle('hide',!isFabCat()); fabRate(); }
-function fabRate(){ const a=Number($('exAmt').value), k=Number($('exKg').value); $('exFabRate').textContent=a&&k?'Rate: '+rs(Math.round(a/k))+' per kg':''; }
+const isItemCat=()=>exType==='Company' && $('exCat').value==='Accessories for stock';
+function fabShow(){ $('exFabBox').classList.toggle('hide',!isFabCat()); $('exItemBox').classList.toggle('hide',!isItemCat()); fabRate(); }
+function fabRate(){ const a=Number($('exAmt').value), k=Number($('exKg').value), q=Number($('exQty').value);
+  $('exFabRate').textContent=a&&k?'Rate: '+rs(Math.round(a/k))+' per kg':''; }
 function fabTodoGo(){ const t=B.fabricTodo||[]; if(t.length===1) return editEntry(t[0].id); histT='e'; go('history'); }
 function modeChanged(){
   const m=exModeV;
@@ -890,7 +944,7 @@ function saveExpense(){ busy('exSave', async()=>{
   const p={date:$('exDate').value,type:exType,order:$('exOrder').value,category:$('exCat').value,paidTo:$('exPaidTo').value.trim(),
     description:$('exDesc').value,amount:$('exAmt').value,mode:exModeV,paidFrom:$('exFrom').value,chequeNo:$('exChq').value.trim(),
     billRef:$('exRef').value,ethNo:$('exEth').value.trim(),personalOf:$('exPersonalOf').value,ownPocket:isP()&&exType!=='Personal'&&$('exOwn').checked,
-    fabricCode:$('exFab').value,gsm:$('exGsm').value,kg:$('exKg').value};
+    fabricCode:$('exFab').value,gsm:$('exGsm').value,kg:$('exKg').value,item:$('exItem').value,qty:$('exQty').value};
   if(exType==='Order' && exMultiOn && !EDIT){
     const L=splitVals().filter(l=>l.order||l.amount);
     need(L.length>=2,'exSplit','Add at least two orders');
@@ -901,6 +955,7 @@ function saveExpense(){ busy('exSave', async()=>{
   if(exType!=='Personal') need(p.category,'exCat','Choose a category');
   need(Number(p.amount)>0,'exAmt','Enter the amount');
   if(isFabCat()){ need(p.fabricCode&&p.fabricCode!=='__new','exFab','Choose the fabric code'); need(Number(p.gsm)>=80,'exGsm','Enter the GSM'); need(Number(p.kg)>0,'exKg','Enter the kg'); }
+  if(isItemCat()){ need(p.item,'exItem','Choose the item'); need(Number(p.qty)>0,'exQty','Enter how many pieces'); }
   need(p.paidTo,'exPaidTo','Who was paid?');
   if(p.mode==='Cheque'){ need(p.chequeNo,'exChq','Enter the cheque number'); }
   p.bill=await files('exBill'); p.cheque=p.mode==='Cheque'?await files('exChqPhoto'):[];
@@ -916,7 +971,7 @@ function saveExpense(){ busy('exSave', async()=>{
   $('exResult').innerHTML='<div class="note ok" role="status">Saved '+rs(p.amount)+(p.splits?' for '+p.splits.length+' orders ('+esc(p.splits.map(l=>l.order+' '+rs(l.amount)).join(', '))+')':'')+'. Write this number on the bill:<div class="big-no">'+esc(r.billNo)+'</div>'+
     (p.ownPocket?'The company now owes you '+rs(p.amount)+'. ':'')+'</div>'+(warn.length?'<div class="note bad">Check: '+esc(warn.join('; '))+'</div>':'');
   $('exResult').scrollIntoView({block:'center',behavior:'smooth'});
-  resetFields(['exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto','exFab','exGsm','exKg']); fabRate(); $('exOwn').checked=false; $('exChqHint').textContent=''; setMulti(false); $('billNote').innerHTML=''; modeChanged();
+  resetFields(['exPaidTo','exDesc','exAmt','exChq','exRef','exEth','exBill','exChqPhoto','exFab','exGsm','exKg','exItem','exQty']); fabRate(); $('exOwn').checked=false; $('exChqHint').textContent=''; setMulti(false); $('billNote').innerHTML=''; modeChanged();
   refresh();
 }); }
 
@@ -1068,9 +1123,33 @@ function saveStatement(){ busy('stSave', async()=>{
 /* ---------------- fabric stock ---------------- */
 let FB=null;
 const thumbUrl=id=>'https://drive.google.com/thumbnail?id='+encodeURIComponent(id)+'&sz=w200';
-function fabTab(t){ ['stock','move','lib'].forEach(x=>{ $('fbT-'+x).setAttribute('aria-pressed',String(x===t)); $('fb'+{stock:'Stock',move:'Move',lib:'Lib'}[x]).classList.toggle('hide',x!==t); }); }
+function fabTab(t){ ['stock','acc','move','lib'].forEach(x=>{ $('fbT-'+x).setAttribute('aria-pressed',String(x===t)); $('fb'+{stock:'Stock',acc:'Acc',move:'Move',lib:'Lib'}[x]).classList.toggle('hide',x!==t); }); }
+function renderAcc(){
+  const I=FB.items||[];
+  $('acList').innerHTML=I.length?I.map(x=>'<div class="item"><div class="main"><div class="ttl">'+esc(x.item)+'</div><div class="meta">'+(x.perPiece?x.perPiece+' per piece, taken at dispatch':'entered by hand')+' · alert below '+x.min+(x.rate?' · '+rs(x.rate)+' each':'')+'</div>'+
+    (x.low?'<span class="chip bad">Low</span>':'')+'</div><div class="amt">'+x.qty.toLocaleString()+' pcs<div class="small muted">'+rs(x.value)+'</div></div></div>').join(''):'<div class="muted">No items yet.</div>';
+  $('amItem').innerHTML=opts(I.map(x=>x.item),'Box'); $('aiNames').innerHTML=I.map(x=>'<option value="'+esc(x.item)+'">').join('');
+  $('aiCat').innerHTML=opts(FB.costCats||['Trims / Accessories','Packing'],'Trims / Accessories');
+  $('acRecent').innerHTML=(FB.itemRecent||[]).length?FB.itemRecent.map(m=>'<div class="item"><div class="main"><div class="ttl">'+esc(m.item)+' · '+m.qty+' pcs</div><div class="meta">'+esc(m.date)+' · '+esc(m.move)+(m.order?' · '+esc(m.order):'')+' · '+esc(m.by)+(m.note?' · '+esc(m.note):'')+'</div></div><div class="amt">'+rs(m.amount)+'</div></div>').join(''):'<div class="muted">Nothing yet.</div>';
+  amShow();
+}
+function amShow(){ const m=$('amMove').value, a=m==='Adjust'; $('amOrderBox').classList.toggle('hide',m!=='Used on order'); $('amRateBox').classList.toggle('hide',m!=='Opening stock'); $('amNoteOpt').textContent=a?'*':'(optional)'; }
+function saveItemMove(){ busy('amSave', async()=>{
+  const p={move:$('amMove').value,item:$('amItem').value,qty:$('amQty').value,order:$('amOrder').value,date:$('amDate').value,note:$('amNote').value,rate:$('amRate').value};
+  if(p.move==='Opening stock') need(Number(p.rate)>0,'amRate','Enter the price per piece');
+  need(Number(p.qty),'amQty','Enter how many');
+  if(p.move==='Used on order') need(B.orders.some(o=>o.name===p.order),'amOrder','Pick the order from the list');
+  else if(p.move==='Adjust') need(p.note,'amNote','Write why');
+  const r=await call('itemMove',p); resetFields(['amQty','amOrder','amNote','amRate']); await initFabric(); fabTab('acc');
+  $('amResult').innerHTML='<div class="note ok">Saved. '+esc(p.item)+' left: '+r.left+'</div>'; refresh();
+}); }
+function saveItemDef(){ busy('aiSave', async()=>{
+  const p={item:$('aiName').value.trim(),perPiece:$('aiPer').value||0,min:$('aiMin').value||0,costCat:$('aiCat').value};
+  need(p.item,'aiName','Enter the item name');
+  await call('saveItem',p); toast(p.item+' saved',true); resetFields(['aiName','aiPer','aiMin']); await refresh(); await initFabric(); fabTab('acc');
+}); }
 async function initFabric(){
-  $('fmDate').value=B.today; $('fmDate').max=B.today; $('fmResult').innerHTML='';
+  $('fmDate').value=B.today; $('fmDate').max=B.today; $('fmResult').innerHTML=''; $('amDate').value=B.today; $('amDate').max=B.today; $('amResult').innerHTML='';
   $('nfType').innerHTML=opts(B.fabricTypes||['Fleece'],'Fleece');
   $('fbLots').innerHTML='<div class="skel"></div><div class="skel"></div>';
   try{ FB=await call('fabrics'); }catch(e){ $('fbLots').innerHTML='<div class="note bad">'+esc(e.message)+'</div>'; return; }
@@ -1089,21 +1168,25 @@ async function initFabric(){
   $('fbList').innerHTML=FB.fabrics.map(f=>'<div class="item">'+sw(f)+'<div class="main"><div class="ttl">'+esc(f.code)+' · '+esc(f.color)+(f.shade?' ('+esc(f.shade)+')':'')+'</div>'+
     '<div class="meta">'+esc(f.type)+(f.gsms.length?' · GSM '+esc(f.gsms.join(', ')):'')+(f.stockKg?' · '+Math.round(f.stockKg*10)/10+' kg in stock':'')+'</div>'+
     '<button class="btn sec sm" style="margin-top:6px" onclick="pickSwatch(\''+esc(f.code)+'\')">'+(f.swatch?'Change swatch':'Add swatch photo')+'</button></div></div>').join('');
-  fmShow();
+  $('fmCode').innerHTML=opts((B.fabrics||[]).map(f=>({v:f.code,l:f.label})));
+  fmShow(); renderAcc();
 }
 function fmShow(){ const m=$('fmMove').value;
-  $('fmBuyBox').classList.toggle('hide',m!=='Leftover to stock'); $('fmLotBox').classList.toggle('hide',m==='Leftover to stock');
+  $('fmOpenBox').classList.toggle('hide',m!=='Opening stock');
+  $('fmBuyBox').classList.toggle('hide',m!=='Leftover to stock'); $('fmLotBox').classList.toggle('hide',m==='Leftover to stock'||m==='Opening stock');
   $('fmOrderBox').classList.toggle('hide',m!=='Use from stock'); $('fmNoteOpt').textContent=m==='Wastage'?'*':'(optional)'; fmHint(); }
 function fmHint(){ if(!FB) return; const m=$('fmMove').value, k=Number($('fmKg').value)||0; let t='';
   if(m==='Leftover to stock'){ const b=FB.buys.find(x=>x.id===$('fmBuy').value); if(b) t=b.left+' kg can still be moved. '+(k?rs(Math.round(k*b.rate))+' comes off '+b.order+"'s cost and goes into stock.":''); }
   else { const l=FB.lots.find(x=>x.key===$('fmLot').value); if(l) t=l.kg+' kg in stock at '+rs(l.rate)+'/kg. '+(k?(m==='Wastage'?rs(Math.round(k*l.rate))+' will be shown as company loss.':rs(Math.round(k*l.rate))+' will be added to the order cost.'):''); }
   $('fmHint').textContent=t; }
 function saveMove(){ busy('fmSave', async()=>{
-  const p={move:$('fmMove').value,kg:$('fmKg').value,date:$('fmDate').value,note:$('fmNote').value,expenseId:$('fmBuy').value,lot:$('fmLot').value,order:$('fmOrder').value};
+  const p={move:$('fmMove').value,kg:$('fmKg').value,date:$('fmDate').value,note:$('fmNote').value,expenseId:$('fmBuy').value,lot:$('fmLot').value,order:$('fmOrder').value,
+    code:$('fmCode').value,kind:$('fmKind').value,gsm:$('fmGsm').value,rate:$('fmRate').value};
+  if(p.move==='Opening stock'){ need(p.code,'fmCode','Pick the code'); need(Number(p.gsm)>=80,'fmGsm','Enter the GSM'); need(Number(p.rate)>0,'fmRate','Enter the price per kg'); }
   if(p.move==='Use from stock') need(B.orders.some(o=>o.name===p.order),'fmOrder','Pick the order from the list');
   if(p.move==='Wastage') need(p.note,'fmNote','Write why it is wastage');
   const r=await call('fabricMove',p);
-  resetFields(['fmKg','fmNote','fmOrder']); await initFabric();
+  resetFields(['fmKg','fmNote','fmOrder','fmGsm','fmRate']); await initFabric();
   $('fmResult').innerHTML='<div class="note ok">Saved: '+esc(p.move)+' '+esc(r.code)+' '+p.kg+' kg = '+rs(r.amount)+(r.order?' ('+esc(r.order)+')':'')+'.</div>'; fabTab('move');
 }); }
 function saveFabric(){ busy('nfSave', async()=>{
