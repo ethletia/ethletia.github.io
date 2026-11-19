@@ -261,7 +261,7 @@ textarea.in{min-height:80px;resize:vertical}
     <div class="hide" id="exItemBox"><div class="two">
       <div class="field"><label class="l" for="exItem">Item <span class="req">*</span></label><select class="in" id="exItem"></select><div class="err" id="exItem-err"></div></div>
       <div class="field"><label class="l" for="exQty">Pieces <span class="req">*</span></label><input class="in" id="exQty" type="number" inputmode="numeric" oninput="fabRate()"><div class="err" id="exQty-err"></div></div>
-    </div></div>
+    </div><div class="hint" id="exItemHint"></div></div>
     <div class="hide" id="exFabBox">
       <div class="field"><label class="l" for="exFab">Fabric code <span class="req">*</span></label><select class="in" id="exFab" onchange="if(this.value==='__new'){go('fabric');fabTab('lib');}"></select><div class="err" id="exFab-err"></div>
         <div class="hint">New colour? Choose "+ Add new fabric" and add it with its swatch photo first.</div></div>
@@ -388,10 +388,11 @@ textarea.in{min-height:80px;resize:vertical}
       <div class="field"><label class="l" for="amMove">What happened</label><select class="in" id="amMove" onchange="amShow()">
         <option value="Used on order">Used on an order (e.g. boxes at dispatch)</option>
         <option value="Adjust">Count correction (lost, damaged, counted less)</option>
+        <option value="Stock count">Stock count - I counted what is in hand</option>
         <option value="Opening stock">Already in hand before using the app (opening stock)</option></select></div>
       <div class="two">
         <div class="field"><label class="l" for="amItem">Item</label><select class="in" id="amItem"></select></div>
-        <div class="field"><label class="l" for="amQty">How many <span class="req">*</span></label><input class="in" id="amQty" type="number" inputmode="numeric"></div>
+        <div class="field"><label class="l" for="amQty" id="amQtyL">How many <span class="req">*</span></label><input class="in" id="amQty" type="number" inputmode="numeric"></div>
       </div>
       <div class="field hide" id="amRateBox"><label class="l" for="amRate">Price per piece <span class="req">*</span></label><div class="money"><span>Rs</span><input class="in" id="amRate" type="number" inputmode="decimal"></div></div>
       <div class="field" id="amOrderBox"><label class="l" for="amOrder">Order</label><input class="in" id="amOrder" list="orderList" autocomplete="off"></div>
@@ -399,7 +400,7 @@ textarea.in{min-height:80px;resize:vertical}
         <div class="field"><label class="l" for="amDate">Date</label><input class="in" id="amDate" type="date"></div>
         <div class="field"><label class="l" for="amNote">Note <span class="opt" id="amNoteOpt">(optional)</span></label><input class="in" id="amNote"></div>
       </div>
-      <div class="hint">Care labels, size labels and poly bags are taken from stock automatically when an order is dispatched, by its piece count. Only boxes need to be entered here.</div>
+      <div class="hint">Labels, poly bags and zips are taken from stock automatically when an order is dispatched, by its pieces. Enter boxes here, and do a stock count now and then so waste shows in the monthly report.</div>
       <button class="btn" id="amSave" onclick="saveItemMove()">Save</button>
       <div id="amResult" role="status"></div>
     </div>
@@ -410,7 +411,15 @@ textarea.in{min-height:80px;resize:vertical}
         <div class="field"><label class="l" for="aiPer">Used per piece</label><input class="in" id="aiPer" type="number" inputmode="numeric" placeholder="1, or 0 if entered by hand"></div>
         <div class="field"><label class="l" for="aiMin">Alert below</label><input class="in" id="aiMin" type="number" inputmode="numeric" placeholder="e.g. 500"></div>
       </div>
-      <div class="field"><label class="l" for="aiCat">Shows on orders as</label><select class="in" id="aiCat"></select></div>
+      <div class="two">
+        <div class="field"><label class="l" for="aiApplies">Only on products with</label><input class="in" id="aiApplies" placeholder="e.g. zip (blank = all)"></div>
+        <div class="field"><label class="l" for="aiClient">Clients</label><select class="in" id="aiClient"></select></div>
+      </div>
+      <div class="two">
+        <div class="field"><label class="l" for="aiMode">Taken from stock</label><select class="in" id="aiMode"><option value="Every order">On every order</option><option value="Bought for order">Only on orders it was bought for</option></select></div>
+        <div class="field"><label class="l" for="aiCat">Shows on orders as</label><select class="in" id="aiCat"></select></div>
+      </div>
+      <div class="hint">Example: "Zip - Maroon": 1 per piece, only on products with "zip", only on orders it was bought for. Write "Zip Hoodie" in the tracker's Products / Qty so the app knows.</div>
       <button class="btn sec" id="aiSave" onclick="saveItemDef()">Save item</button>
     </div>
     <div class="sec-title">Recent</div><div class="card" id="acRecent"></div>
@@ -873,8 +882,10 @@ function setType(t){
   fabShow(); modeChanged();
 }
 function isFabCat(){ return exType!=='Personal' && (B.fabricCats||[]).indexOf($('exCat').value)>=0; }
-const isItemCat=()=>exType==='Company' && $('exCat').value==='Accessories for stock';
-function fabShow(){ $('exFabBox').classList.toggle('hide',!isFabCat()); $('exItemBox').classList.toggle('hide',!isItemCat()); fabRate(); }
+const isItemCat=()=>(exType==='Company' && $('exCat').value==='Accessories for stock') || (exType==='Order' && ['Trims / Accessories','Packing'].indexOf($('exCat').value)>=0);
+const itemNeeded=()=>exType==='Company' && $('exCat').value==='Accessories for stock';
+function fabShow(){ $('exFabBox').classList.toggle('hide',!isFabCat()); $('exItemBox').classList.toggle('hide',!isItemCat());
+  $('exItemHint').textContent=itemNeeded()?'':'Pick the item if it goes into stock (e.g. zips for this order). The order is charged only for what it uses; the rest stays in stock.'; fabRate(); }
 function fabRate(){ const a=Number($('exAmt').value), k=Number($('exKg').value), q=Number($('exQty').value);
   $('exFabRate').textContent=a&&k?'Rate: '+rs(Math.round(a/k))+' per kg':''; }
 function fabTodoGo(){ const t=B.fabricTodo||[]; if(t.length===1) return editEntry(t[0].id); histT='e'; go('history'); }
@@ -955,7 +966,9 @@ function saveExpense(){ busy('exSave', async()=>{
   if(exType!=='Personal') need(p.category,'exCat','Choose a category');
   need(Number(p.amount)>0,'exAmt','Enter the amount');
   if(isFabCat()){ need(p.fabricCode&&p.fabricCode!=='__new','exFab','Choose the fabric code'); need(Number(p.gsm)>=80,'exGsm','Enter the GSM'); need(Number(p.kg)>0,'exKg','Enter the kg'); }
-  if(isItemCat()){ need(p.item,'exItem','Choose the item'); need(Number(p.qty)>0,'exQty','Enter how many pieces'); }
+  if(itemNeeded()) need(p.item,'exItem','Choose the item');
+  if(isItemCat() && p.item) need(Number(p.qty)>0,'exQty','Enter how many pieces');
+  if(!isItemCat()){ p.item=''; p.qty=''; }
   need(p.paidTo,'exPaidTo','Who was paid?');
   if(p.mode==='Cheque'){ need(p.chequeNo,'exChq','Enter the cheque number'); }
   p.bill=await files('exBill'); p.cheque=p.mode==='Cheque'?await files('exChqPhoto'):[];
@@ -1126,27 +1139,30 @@ const thumbUrl=id=>'https://drive.google.com/thumbnail?id='+encodeURIComponent(i
 function fabTab(t){ ['stock','acc','move','lib'].forEach(x=>{ $('fbT-'+x).setAttribute('aria-pressed',String(x===t)); $('fb'+{stock:'Stock',acc:'Acc',move:'Move',lib:'Lib'}[x]).classList.toggle('hide',x!==t); }); }
 function renderAcc(){
   const I=FB.items||[];
-  $('acList').innerHTML=I.length?I.map(x=>'<div class="item"><div class="main"><div class="ttl">'+esc(x.item)+'</div><div class="meta">'+(x.perPiece?x.perPiece+' per piece, taken at dispatch':'entered by hand')+' · alert below '+x.min+(x.rate?' · '+rs(x.rate)+' each':'')+'</div>'+
+  $('acList').innerHTML=I.length?I.map(x=>'<div class="item"><div class="main"><div class="ttl">'+esc(x.item)+'</div><div class="meta">'+(x.perPiece?x.perPiece+' per piece'+(x.appliesTo?' of '+esc(x.appliesTo)+' items':'')+(x.client?(x.client[0]==='!'?', all clients except '+esc(x.client.slice(1)):', only '+esc(x.client)):'')+(x.mode==='Bought for order'?', only orders it was bought for':'')+', taken at dispatch':'entered by hand')+' · alert below '+x.min+(x.rate?' · '+rs(x.rate)+' each':'')+'</div>'+
     (x.low?'<span class="chip bad">Low</span>':'')+'</div><div class="amt">'+x.qty.toLocaleString()+' pcs<div class="small muted">'+rs(x.value)+'</div></div></div>').join(''):'<div class="muted">No items yet.</div>';
   $('amItem').innerHTML=opts(I.map(x=>x.item),'Box'); $('aiNames').innerHTML=I.map(x=>'<option value="'+esc(x.item)+'">').join('');
   $('aiCat').innerHTML=opts(FB.costCats||['Trims / Accessories','Packing'],'Trims / Accessories');
+  $('aiClient').innerHTML=opts([{v:'',l:'All clients'}].concat((B.clients||[]).map(c=>({v:c,l:'Only '+c}))).concat((B.clients||[]).map(c=>({v:'!'+c,l:'All except '+c}))),'');
+  $('aiName').onchange=()=>{ const x=I.find(i=>i.item.toLowerCase()===$('aiName').value.trim().toLowerCase()); if(!x) return;
+    $('aiPer').value=x.perPiece; $('aiMin').value=x.min; $('aiApplies').value=x.appliesTo||''; $('aiClient').value=x.client||''; $('aiMode').value=x.mode||'Every order'; $('aiCat').value=x.costCat; };
   $('acRecent').innerHTML=(FB.itemRecent||[]).length?FB.itemRecent.map(m=>'<div class="item"><div class="main"><div class="ttl">'+esc(m.item)+' · '+m.qty+' pcs</div><div class="meta">'+esc(m.date)+' · '+esc(m.move)+(m.order?' · '+esc(m.order):'')+' · '+esc(m.by)+(m.note?' · '+esc(m.note):'')+'</div></div><div class="amt">'+rs(m.amount)+'</div></div>').join(''):'<div class="muted">Nothing yet.</div>';
   amShow();
 }
-function amShow(){ const m=$('amMove').value, a=m==='Adjust'; $('amOrderBox').classList.toggle('hide',m!=='Used on order'); $('amRateBox').classList.toggle('hide',m!=='Opening stock'); $('amNoteOpt').textContent=a?'*':'(optional)'; }
+function amShow(){ const m=$('amMove').value, a=m==='Adjust'; $('amQtyL').innerHTML=(m==='Stock count'?'Counted':'How many')+' <span class="req">*</span>'; $('amOrderBox').classList.toggle('hide',m!=='Used on order'); $('amRateBox').classList.toggle('hide',m!=='Opening stock'); $('amNoteOpt').textContent=a?'*':'(optional)'; }
 function saveItemMove(){ busy('amSave', async()=>{
   const p={move:$('amMove').value,item:$('amItem').value,qty:$('amQty').value,order:$('amOrder').value,date:$('amDate').value,note:$('amNote').value,rate:$('amRate').value};
   if(p.move==='Opening stock') need(Number(p.rate)>0,'amRate','Enter the price per piece');
-  need(Number(p.qty),'amQty','Enter how many');
+  need(p.move==='Stock count'?p.qty!=='':Number(p.qty),'amQty','Enter how many');
   if(p.move==='Used on order') need(B.orders.some(o=>o.name===p.order),'amOrder','Pick the order from the list');
   else if(p.move==='Adjust') need(p.note,'amNote','Write why');
   const r=await call('itemMove',p); resetFields(['amQty','amOrder','amNote','amRate']); await initFabric(); fabTab('acc');
-  $('amResult').innerHTML='<div class="note ok">Saved. '+esc(p.item)+' left: '+r.left+'</div>'; refresh();
+  $('amResult').innerHTML='<div class="note ok">Saved. '+esc(p.item)+' now: '+r.left+(p.move==='Stock count'?(r.diff?' · difference '+r.diff+' ('+rs(r.amount)+') recorded as waste':' · matches the app'):'')+'</div>'; refresh();
 }); }
 function saveItemDef(){ busy('aiSave', async()=>{
-  const p={item:$('aiName').value.trim(),perPiece:$('aiPer').value||0,min:$('aiMin').value||0,costCat:$('aiCat').value};
+  const p={item:$('aiName').value.trim(),perPiece:$('aiPer').value||0,min:$('aiMin').value||0,costCat:$('aiCat').value,appliesTo:$('aiApplies').value.trim(),client:$('aiClient').value,mode:$('aiMode').value};
   need(p.item,'aiName','Enter the item name');
-  await call('saveItem',p); toast(p.item+' saved',true); resetFields(['aiName','aiPer','aiMin']); await refresh(); await initFabric(); fabTab('acc');
+  await call('saveItem',p); toast(p.item+' saved',true); resetFields(['aiName','aiPer','aiMin','aiApplies']); await refresh(); await initFabric(); fabTab('acc');
 }); }
 async function initFabric(){
   $('fmDate').value=B.today; $('fmDate').max=B.today; $('fmResult').innerHTML=''; $('amDate').value=B.today; $('amDate').max=B.today; $('amResult').innerHTML='';
