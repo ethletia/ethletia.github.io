@@ -857,7 +857,7 @@ function initExpense(){
   $('exResult').innerHTML=''; $('exDate').value=B.today; $('exDate').max=B.today;
   const types=[['Order','Order'],['Company','Company']]; if(isP()) types.push(['Personal','Personal']);
   seg('exType',types,exType,setType);
-  seg('exMode',[['Cash','Cash'],['Cheque','Cheque'],['Bank transfer','Bank'],['JazzCash / Easypaisa','JazzCash']],'Cash',v=>{ exModeV=v; setSeg('exMode',v); modeChanged(); });
+  seg('exMode',[['Cash','Cash'],['Cheque','Cheque'],['Bank transfer','Co. bank'],['Bank transfer (own account)','My bank'],['JazzCash / Easypaisa','JazzCash']],'Cash',v=>{ exModeV=v; setSeg('exMode',v); modeChanged(); });
   exModeV='Cash';
   $('exFrom').innerHTML=opts(B.users.map(u=>u.name), B.user.name);
   $('exPersonalOf').innerHTML=opts(B.users.filter(u=>u.role==='Partner').map(u=>u.name), B.user.name);
