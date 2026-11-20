@@ -1049,10 +1049,11 @@ function addLine(v){
     '<div style="margin-top:8px"><label>Product</label><input class="in ln-p" list="productList" placeholder="e.g. Hoodie" autocomplete="off"></div>'+
     '<div class="grid3"><div><label>Qty</label><input class="in ln-q" type="number" inputmode="numeric" oninput="inSum()"></div>'+
     '<div><label>Unit $</label><input class="in ln-u" type="number" inputmode="decimal" oninput="inSum()"></div>'+
-    '<div><label>Amount $</label><input class="in ln-a" type="number" inputmode="decimal" placeholder="auto" oninput="this.dataset.man=1;inSum()"></div></div>';
+    '<div><label>Amount $</label><input class="in ln-a" type="number" inputmode="decimal" placeholder="auto, or -101 for discount" oninput="this.dataset.man=1;inSum()"></div></div>';
   $('inLines').appendChild(d);
   d.querySelector('.ln-o').value=v.order||''; d.querySelector('.ln-p').value=v.product||'';
   if(v.qty) d.querySelector('.ln-q').value=v.qty; if(v.unit) d.querySelector('.ln-u').value=Math.round(v.unit*100)/100;
+  if(!v.qty && v.usd){ const am=d.querySelector('.ln-a'); am.value=v.usd; am.dataset.man=1; }
   inSum();
 }
 function lineOrder(el){ const o=B.orders.find(x=>x.name===el.value); if(o && !$('inClient').value) $('inClient').value=o.client||''; }
@@ -1086,7 +1087,8 @@ function saveInvoice(){ busy('inSave', async()=>{
   const lines=lineVals().filter(l=>l.order||l.usd||l.qty);
   need($('inNo').value.trim(),'inNo','Enter the invoice number');
   if(!lines.length) throw new Error('Add at least one line');
-  lines.forEach((l,i)=>{ if(!B.orders.some(o=>o.name===l.order)) throw new Error('Line '+(i+1)+': pick the order from the list'); if(!(l.usd>0)) throw new Error('Line '+(i+1)+': enter qty and unit price'); });
+  lines.forEach((l,i)=>{ if(!B.orders.some(o=>o.name===l.order)) throw new Error('Line '+(i+1)+': pick the order from the list'); if(!l.usd) throw new Error('Line '+(i+1)+': enter qty and unit price'); if(l.usd<0 && (l.qty||!l.product)) throw new Error('Line '+(i+1)+': a minus line (discount/credit) needs a name in Product and no qty'); });
+  if(!(lines.reduce((s,l)=>s+l.usd,0)>0)) throw new Error('The invoice total must be more than zero');
   const p={date:$('inDate').value,invoiceNo:$('inNo').value.trim(),client:$('inClient').value,lines,note:$('inNote').value};
   p.file=await files('inFile'); need(p.file.length,'inFile','Upload the invoice file');
   const r=await call('addInvoice',p);
